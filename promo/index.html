@@ -1,0 +1,703 @@
+<!doctype html>
+<html lang="fa">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <title>Daroyar demo</title>
+    <script src="assets/vendor/gsap.min.js"></script>
+    <style>
+      @font-face { font-family: "Vz"; src: url("assets/fonts/Vazirmatn-FD-Regular.woff2") format("woff2"); font-weight: 400; }
+      @font-face { font-family: "Vz"; src: url("assets/fonts/Vazirmatn-FD-Medium.woff2") format("woff2"); font-weight: 500; }
+      @font-face { font-family: "Vz"; src: url("assets/fonts/Vazirmatn-FD-Bold.woff2") format("woff2"); font-weight: 700; }
+      @font-face { font-family: "Vz"; src: url("assets/fonts/Vazirmatn-FD-ExtraBold.woff2") format("woff2"); font-weight: 800; }
+      @font-face { font-family: "Vz"; src: url("assets/fonts/Vazirmatn-FD-Black.woff2") format("woff2"); font-weight: 900; }
+
+      :root {
+        --bg: #0a1330;
+        --navy2: #121e4a;
+        --blue: #3d6bff;
+        --yellow: #ffd23f;
+        --fg: #f3f6ff;
+        --muted: #b4bfdf;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--bg); }
+      body { font-family: "Vz", sans-serif; color: var(--fg); }
+      #root { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--bg); }
+      .clip { position: absolute; inset: 0; }
+      .in { position: absolute; inset: 0; direction: rtl; }
+      .cap { direction: rtl; }
+      .ic { display: inline-block; width: 1em; height: 1em; flex: none; }
+      .hl-y { color: var(--yellow); }
+      .hl-g { color: #5ee08a; }
+      .hl-r { color: #ff7b7b; }
+
+      /* ---------- background ---------- */
+      #bg .glow { position: absolute; border-radius: 50%; }
+      #glowA { left: -260px; top: 120px; width: 1600px; height: 1600px; background: radial-gradient(circle, rgba(61, 107, 255, 0.34) 0%, rgba(61, 107, 255, 0.12) 38%, rgba(10, 19, 48, 0) 68%); }
+      #glowB { left: 380px; top: 1250px; width: 1100px; height: 1100px; background: radial-gradient(circle, rgba(51, 97, 255, 0.22) 0%, rgba(10, 19, 48, 0) 65%); }
+      #grid { position: absolute; left: -60px; top: -120px; width: 1200px; height: 2300px; background-image: radial-gradient(rgba(140, 170, 255, 0.22) 2.5px, transparent 3px); background-size: 54px 54px; opacity: 0.55; }
+      .cap-deco { position: absolute; width: 150px; height: 56px; border-radius: 28px; border: 4px solid rgba(110, 145, 255, 0.28); }
+      #dk1 { left: 60px; top: 260px; } #dk2 { left: 880px; top: 420px; } #dk3 { left: 70px; top: 1260px; } #dk4 { left: 860px; top: 1180px; } #dk5 { left: 460px; top: 90px; width: 110px; height: 42px; }
+
+      /* ---------- shared: chips, captions, phone ---------- */
+      .chiprow { position: absolute; left: 0; right: 0; top: 70px; display: flex; justify-content: center; }
+      .chip { display: flex; align-items: center; gap: 16px; padding: 14px 34px; border-radius: 999px; background: rgba(9, 17, 46, 0.92); border: 3px solid var(--blue); font-weight: 700; font-size: 40px; color: #fff; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4); }
+      .chip .ic { width: 44px; height: 44px; color: var(--yellow); }
+
+      .cap { top: 1372px; bottom: auto; left: 40px; right: 40px; height: 240px; display: flex; align-items: center; justify-content: center; }
+      .capin { max-width: 1000px; padding: 22px 44px; border-radius: 40px; background: rgba(6, 11, 32, 0.9); border: 3px solid rgba(61, 107, 255, 0.65); box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5); font-weight: 800; font-size: 52px; line-height: 1.5; text-align: center; color: #fff; }
+
+      .cam { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; transform-origin: 0 0; }
+      .phone { position: absolute; left: 270px; top: 175px; width: 540px; height: 1171px; padding: 12px; border-radius: 76px; background: #05070d; box-shadow: inset 0 0 0 3px #2d3858, 0 0 0 3px #0e1430, 0 50px 120px rgba(0, 0, 0, 0.6), 0 0 90px rgba(61, 107, 255, 0.3); }
+      .screen { position: relative; width: 516px; height: 1147px; border-radius: 64px; overflow: hidden; background: #000; }
+      .punch { position: absolute; left: 244px; top: 14px; width: 28px; height: 28px; border-radius: 50%; background: #000; box-shadow: 0 0 0 3px #111; z-index: 5; }
+      .vp { position: absolute; left: 0; top: 0; width: 1080px; height: 2400px; transform-origin: 0 0; transform: scale(0.477778); overflow: hidden; }
+      .vp > * { position: absolute; }
+      .shot { left: 0; top: 0; width: 1080px; height: 2400px; }
+      .cover { border-radius: 8px; }
+      .focus { border: 6px solid #3a9df0; border-radius: 34px; opacity: 0; }
+      .hl { border: 9px solid var(--yellow); border-radius: 46px; box-shadow: 0 0 0 8px rgba(255, 210, 63, 0.25), 0 0 60px rgba(255, 210, 63, 0.6); opacity: 0; }
+      .press { background: rgba(0, 0, 0, 0.3); border-radius: 34px; opacity: 0; }
+      .typed { right: 89px; width: 900px; height: 76px; }
+      .typed span { position: absolute; right: 0; top: 0; line-height: 76px; font-size: 38px; font-weight: 400; color: #fff; white-space: nowrap; opacity: 0; }
+      .touch { left: 0; top: 0; width: 160px; height: 160px; margin: -80px 0 0 -80px; border-radius: 50%; background: rgba(255, 255, 255, 0.4); border: 6px solid rgba(255, 255, 255, 0.95); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4); opacity: 0; z-index: 20; }
+      .tring { position: absolute; left: -6px; top: -6px; width: 160px; height: 160px; border-radius: 50%; border: 8px solid #fff; opacity: 0; }
+
+      /* ---------- S1 hook ---------- */
+      .clock { position: absolute; left: 420px; top: 270px; width: 240px; height: 240px; border-radius: 50%; border: 12px solid #fff; background: rgba(61, 107, 255, 0.18); box-shadow: 0 0 60px rgba(61, 107, 255, 0.5); }
+      .tick { position: absolute; width: 12px; height: 26px; left: 102px; background: #fff; border-radius: 6px; }
+      .hand { position: absolute; left: 50%; bottom: 50%; border-radius: 8px; transform-origin: 50% 100%; }
+      #hh { width: 16px; height: 62px; margin-left: -8px; background: #fff; }
+      #mh { width: 12px; height: 92px; margin-left: -6px; background: var(--yellow); }
+      .cdot { position: absolute; left: 96px; top: 96px; width: 24px; height: 24px; border-radius: 50%; background: var(--yellow); }
+      #s1lab { position: absolute; left: 0; right: 0; top: 560px; text-align: center; font-weight: 700; font-size: 58px; color: var(--muted); }
+      .s1-row { position: absolute; left: 0; right: 0; display: flex; justify-content: center; gap: 34px; }
+      .s1-row > div { display: inline-block; }
+      #s1r1 { top: 660px; } #s1r2 { top: 900px; } #s1r3 { top: 1170px; }
+      #w1 { font-weight: 900; font-size: 210px; line-height: 1.15; color: var(--yellow); text-shadow: 0 10px 0 rgba(0, 0, 0, 0.35); }
+      #w2, #w3 { font-weight: 900; font-size: 150px; line-height: 1.2; color: #fff; text-shadow: 0 8px 0 rgba(0, 0, 0, 0.35); }
+      .sticker { padding: 10px 54px 22px; background: var(--yellow); color: #0a1330; border-radius: 28px; font-weight: 900; font-size: 120px; line-height: 1.25; box-shadow: 0 16px 0 rgba(0, 0, 0, 0.3); }
+
+      /* ---------- S2 brand ---------- */
+      #appglow { position: absolute; left: 290px; top: 380px; width: 500px; height: 500px; border-radius: 50%; border: 10px solid rgba(255, 210, 63, 0.8); opacity: 0; }
+      #appicon { position: absolute; left: 380px; top: 470px; width: 320px; height: 320px; border-radius: 84px; background: #00796b; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45), 0 0 0 6px rgba(255, 255, 255, 0.12); }
+      #appicon svg { position: absolute; left: 40px; top: 40px; width: 240px; height: 240px; }
+      #wm { position: absolute; left: 0; right: 0; top: 830px; text-align: center; font-weight: 900; font-size: 200px; line-height: 1.2; color: #fff; }
+      #tag { position: absolute; left: 0; right: 0; top: 1100px; text-align: center; font-weight: 800; font-size: 64px; color: #fff; }
+      #tag2 { position: absolute; left: 0; right: 0; top: 1210px; text-align: center; font-weight: 500; font-size: 46px; color: var(--muted); }
+
+      /* ---------- S4 parent phone ---------- */
+      .lock { left: 0; top: 0; width: 1080px; height: 2400px; background: #020306; }
+      .lock > * { position: absolute; }
+      .lk-time { left: 0; right: 0; top: 520px; height: 320px; }
+      .lk-time span { position: absolute; left: 0; right: 0; top: 0; text-align: center; line-height: 320px; font-weight: 400; font-size: 250px; color: #e9eefa; }
+      #lk2 { opacity: 0; }
+      .lk-date { left: 0; right: 0; top: 860px; text-align: center; font-weight: 500; font-size: 64px; color: #8c97b2; }
+      .lk-lock { left: 495px; top: 2060px; width: 90px; height: 90px; color: #8c97b2; }
+      .alarm { left: 0; top: 0; width: 1080px; height: 2400px; background: #0b3d33; opacity: 0; }
+      .alarm > * { position: absolute; }
+      .al-sb { left: 50px; right: 50px; top: 24px; height: 60px; display: flex; justify-content: space-between; align-items: center; direction: ltr; font-weight: 500; font-size: 40px; color: #d6efe9; }
+      .bat { width: 64px; height: 30px; border: 4px solid #d6efe9; border-radius: 7px; position: relative; }
+      .bat::after { content: ""; position: absolute; left: 3px; top: 3px; width: 40px; height: 16px; background: #d6efe9; border-radius: 3px; }
+      #alIcon { left: 430px; top: 220px; width: 220px; height: 220px; transform-origin: 50% 60%; }
+      .al-title { left: 0; right: 0; top: 480px; text-align: center; font-weight: 800; font-size: 116px; color: #fff; }
+      .al-time { left: 0; right: 0; top: 660px; text-align: center; font-weight: 500; font-size: 80px; color: #b2dfdb; }
+      .al-card { left: 66px; right: 66px; top: 840px; height: 210px; background: #14574a; border-radius: 54px; display: flex; align-items: center; gap: 30px; padding: 0 60px; font-weight: 500; font-size: 72px; color: #fff; }
+      .al-card .ic { width: 96px; height: 96px; }
+      .al-btn { left: 66px; right: 66px; display: flex; align-items: center; justify-content: center; gap: 36px; color: #fff; border-radius: 60px; box-shadow: 0 18px 0 rgba(0, 0, 0, 0.25); opacity: 0; }
+      #btnOk { top: 1300px; height: 330px; background: #2e7d32; font-weight: 900; font-size: 110px; }
+      #btnOk .ic { width: 120px; height: 120px; }
+      #btnNo { top: 1700px; height: 252px; background: #8e2a2a; font-weight: 800; font-size: 84px; }
+      #btnNo .ic { width: 80px; height: 80px; color: #fff; }
+      .done { left: 0; top: 0; width: 1080px; height: 2400px; background: #0b3d33; opacity: 0; }
+      .done > * { position: absolute; }
+      #dnC { left: 330px; top: 560px; width: 420px; height: 420px; border-radius: 50%; background: #2e7d32; box-shadow: 0 0 0 30px rgba(46, 125, 50, 0.3); }
+      #dnC svg { position: absolute; left: 90px; top: 90px; width: 240px; height: 240px; }
+      .dn-t { left: 0; right: 0; top: 1100px; text-align: center; font-weight: 900; font-size: 140px; color: #fff; }
+      .dn-s { left: 0; right: 0; top: 1310px; text-align: center; font-weight: 500; font-size: 86px; color: #b2dfdb; }
+      .flash { left: 0; top: 0; width: 1080px; height: 2400px; background: #fff; opacity: 0; }
+      .wave { position: absolute; left: 230px; top: 470px; width: 620px; height: 620px; border-radius: 50%; border: 8px solid rgba(255, 210, 63, 0.75); opacity: 0; }
+      .vib { position: absolute; top: 640px; width: 90px; height: 240px; opacity: 0; }
+      #vibL { left: 150px; } #vibR { left: 840px; }
+
+      /* ---------- S5 telegram ---------- */
+      .tg { left: 0; top: 0; width: 1080px; height: 2400px; background: #0e1621; }
+      .tg > * { position: absolute; }
+      .tg-sb { left: 0; right: 0; top: 0; height: 80px; background: #17212b; display: flex; align-items: center; justify-content: space-between; padding: 0 50px; direction: ltr; font-weight: 500; font-size: 40px; color: #e6ecf2; }
+      .tg-sb .bat { border-color: #e6ecf2; }
+      .tg-head { left: 0; right: 0; top: 80px; height: 200px; background: #17212b; display: flex; align-items: center; gap: 30px; padding: 0 40px; box-shadow: 0 4px 0 rgba(0, 0, 0, 0.25); }
+      .tg-head .back { width: 70px; height: 70px; color: #fff; }
+      .tg-av { width: 130px; height: 130px; border-radius: 50%; background: #e0794f; display: flex; align-items: center; justify-content: center; }
+      .tg-av .ic { width: 78px; height: 78px; color: #fff; }
+      .tg-title { flex: 1; }
+      .tg-title b { display: block; font-weight: 700; font-size: 54px; color: #fff; }
+      .tg-title span { display: block; font-weight: 400; font-size: 40px; color: #8fa2b5; }
+      .tg-head .dots { width: 60px; height: 60px; color: #fff; }
+      .tg-msgs { left: 30px; right: 30px; bottom: 200px; display: flex; flex-direction: column; align-items: flex-start; }
+      .tg-g { width: 100%; display: flex; flex-direction: column; align-items: flex-start; }
+      .tg-date { align-self: center; margin-bottom: 26px; padding: 8px 30px; border-radius: 30px; background: rgba(30, 44, 60, 0.95); font-weight: 500; font-size: 36px; color: #fff; }
+      .tg-row { display: flex; align-items: flex-end; gap: 18px; margin-top: 26px; transform-origin: 100% 100%; }
+      .tg-row .bav { width: 96px; height: 96px; border-radius: 50%; background: #00796b; display: flex; align-items: center; justify-content: center; flex: none; }
+      .tg-row .bav .ic { width: 64px; height: 64px; }
+      .tg-bub { max-width: 840px; padding: 24px 38px 16px; border-radius: 40px 40px 10px 40px; background: #182533; font-weight: 400; font-size: 46px; line-height: 1.55; color: #fff; }
+      .tg-from { font-weight: 700; font-size: 40px; color: #6ab3f3; margin-bottom: 4px; }
+      .tg-line { display: flex; align-items: center; gap: 14px; }
+      .tg-line .ic { width: 54px; height: 54px; }
+      .tg-mut { font-size: 40px; color: #a9b8c7; }
+      .tg-time { text-align: left; font-size: 32px; color: #9aaabb; margin-top: 4px; }
+      .tg-input { left: 0; right: 0; bottom: 0; height: 170px; background: #17212b; display: flex; align-items: center; gap: 28px; padding: 0 30px; }
+      .tg-menu { display: flex; align-items: center; gap: 14px; padding: 18px 34px; border-radius: 44px; background: #3390ec; font-weight: 700; font-size: 40px; color: #fff; }
+      .tg-menu .ic { width: 50px; height: 50px; }
+      .tg-ph { font-weight: 400; font-size: 44px; color: #8b99a7; }
+
+      /* ---------- S7 android-only ---------- */
+      .nb { position: absolute; left: 0; right: 0; top: 230px; display: flex; justify-content: center; }
+      .nb div { padding: 10px 40px 16px; border-radius: 999px; background: var(--yellow); color: #0a1330; font-weight: 900; font-size: 54px; }
+      .ncard { position: absolute; left: 60px; right: 60px; height: 450px; border-radius: 52px; display: flex; align-items: center; gap: 44px; padding: 0 56px; }
+      #cardA { top: 380px; background: #13215a; border: 4px solid var(--blue); box-shadow: 0 0 70px rgba(61, 107, 255, 0.35); }
+      #cardB { top: 880px; background: #101b46; border: 4px solid rgba(255, 255, 255, 0.2); }
+      .nicon { width: 190px; height: 190px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; }
+      #cardA .nicon { background: var(--yellow); color: #0a1330; }
+      #cardB .nicon { background: rgba(255, 255, 255, 0.12); color: #fff; }
+      .nicon .ic { width: 110px; height: 110px; }
+      .ntxt small { display: block; font-weight: 700; font-size: 46px; color: var(--muted); }
+      .ntxt b { display: block; font-weight: 900; line-height: 1.3; }
+      #cardA .ntxt b { font-size: 112px; color: var(--yellow); }
+      #cardB .ntxt b { font-size: 96px; color: #fff; }
+      .ntxt span { display: block; font-weight: 500; font-size: 38px; line-height: 1.45; color: var(--muted); }
+
+      /* ---------- S8 close ---------- */
+      .cl { position: absolute; left: 0; right: 0; text-align: center; }
+      #l1, #l2 { font-weight: 700; font-size: 84px; color: #cdd6f4; }
+      #l1 { top: 420px; } #l2 { top: 540px; }
+      #l3 { top: 740px; font-weight: 900; font-size: 130px; color: #fff; }
+      #l4 { top: 900px; font-weight: 900; font-size: 160px; color: var(--yellow); text-shadow: 0 10px 0 rgba(0, 0, 0, 0.35); }
+      #l5 { top: 1100px; font-weight: 900; font-size: 130px; color: #fff; }
+      #ecg { position: absolute; left: 90px; top: 1290px; width: 900px; height: 160px; }
+
+      /* ---------- S9 end card ---------- */
+      #tileGlow { position: absolute; left: 290px; top: 340px; width: 500px; height: 500px; border-radius: 50%; border: 10px solid rgba(61, 107, 255, 0.9); opacity: 0; }
+      #tile { position: absolute; left: 380px; top: 430px; width: 320px; height: 320px; border-radius: 80px; background: #fff; overflow: hidden; box-shadow: 0 0 0 8px rgba(61, 107, 255, 0.5), 0 0 90px rgba(61, 107, 255, 0.6), 0 30px 80px rgba(0, 0, 0, 0.5); }
+      #tile img { position: absolute; left: -10px; top: -10px; width: 340px; height: 340px; }
+      #nm { position: absolute; left: 0; right: 0; top: 830px; text-align: center; font-weight: 900; font-size: 104px; color: #fff; }
+      #nmEn { position: absolute; left: 0; right: 0; top: 980px; text-align: center; font-weight: 500; font-size: 50px; letter-spacing: 2px; color: var(--muted); direction: ltr; }
+      #pgLab { position: absolute; left: 0; right: 0; top: 1110px; text-align: center; font-weight: 700; font-size: 42px; color: var(--yellow); }
+      .handlerow { position: absolute; left: 0; right: 0; top: 1190px; display: flex; justify-content: center; }
+      #handle { padding: 14px 56px 22px; border-radius: 999px; background: #3361ff; color: #fff; font-weight: 800; font-size: 72px; direction: ltr; box-shadow: 0 0 60px rgba(51, 97, 255, 0.6); }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="48.5" data-width="1080" data-height="1920">
+      <svg width="0" height="0" style="position: absolute">
+        <defs>
+          <symbol id="i-check" viewBox="0 0 100 100"><rect x="4" y="4" width="92" height="92" rx="20" fill="#45b649" /><path d="M26 52 L43 69 L75 33" stroke="#fff" stroke-width="11" fill="none" stroke-linecap="round" stroke-linejoin="round" /></symbol>
+          <symbol id="i-checkc" viewBox="0 0 100 100"><circle cx="50" cy="50" r="47" fill="#fff" /><path d="M27 52 L43 68 L74 34" stroke="#2e7d32" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round" /></symbol>
+          <symbol id="i-x" viewBox="0 0 100 100"><path d="M22 22 L78 78 M78 22 L22 78" stroke="currentColor" stroke-width="15" stroke-linecap="round" /></symbol>
+          <symbol id="i-warn" viewBox="0 0 100 100"><path d="M50 9 L94 88 H6 Z" fill="#ffc83d" stroke="#ffc83d" stroke-width="6" stroke-linejoin="round" /><rect x="45" y="36" width="10" height="28" rx="5" fill="#1b1b1b" /><circle cx="50" cy="75" r="6" fill="#1b1b1b" /></symbol>
+          <symbol id="i-pill" viewBox="0 0 100 100"><g transform="rotate(-40 50 50)"><rect x="10" y="33" width="80" height="34" rx="17" fill="#fff" /><path d="M50 33 H73 a17 17 0 0 1 0 34 H50 Z" fill="#e5484d" /></g></symbol>
+          <symbol id="i-pillw" viewBox="0 0 100 100"><g transform="rotate(-40 50 50)"><rect x="10" y="33" width="80" height="34" rx="17" fill="#fff" /><path d="M50 33 H73 a17 17 0 0 1 0 34 H50 Z" fill="#ffd23f" /></g></symbol>
+          <symbol id="i-alarm" viewBox="0 0 100 100"><circle cx="21" cy="20" r="12" fill="#e5484d" /><circle cx="79" cy="20" r="12" fill="#e5484d" /><path d="M28 86 L20 96 M72 86 L80 96" stroke="#e5484d" stroke-width="7" stroke-linecap="round" /><circle cx="50" cy="56" r="36" fill="#e5484d" /><circle cx="50" cy="56" r="27" fill="#fff" /><path d="M50 56 V38 M50 56 L63 63" stroke="#222" stroke-width="6" stroke-linecap="round" /></symbol>
+          <symbol id="i-person" viewBox="0 0 100 100"><circle cx="50" cy="32" r="20" fill="currentColor" /><path d="M12 94 C12 66 31 58 50 58 C69 58 88 66 88 94 Z" fill="currentColor" /></symbol>
+          <symbol id="i-people" viewBox="0 0 100 100"><circle cx="35" cy="34" r="16" fill="currentColor" /><path d="M5 88 C5 66 19 58 35 58 C51 58 65 66 65 88 Z" fill="currentColor" /><circle cx="70" cy="30" r="13" fill="currentColor" opacity="0.75" /><path d="M58 54 C63 51 66 50 70 50 C84 50 96 57 96 76 H70 C70 66 66 59 58 54 Z" fill="currentColor" opacity="0.75" /></symbol>
+          <symbol id="i-phone" viewBox="0 0 100 100"><rect x="27" y="6" width="46" height="88" rx="11" fill="none" stroke="currentColor" stroke-width="7" /><circle cx="50" cy="81" r="5" fill="currentColor" /><path d="M50 26 C42 26 38 32 38 39 V48 L34 54 H66 L62 48 V39 C62 32 58 26 50 26 Z M45 58 a5 5 0 0 0 10 0 Z" fill="currentColor" /></symbol>
+          <symbol id="i-chat" viewBox="0 0 100 100"><path d="M16 18 H84 a10 10 0 0 1 10 10 V64 a10 10 0 0 1 -10 10 H46 L24 92 V74 H16 a10 10 0 0 1 -10 -10 V28 a10 10 0 0 1 10 -10 Z" fill="currentColor" /></symbol>
+          <symbol id="i-lock" viewBox="0 0 100 100"><rect x="22" y="44" width="56" height="46" rx="9" fill="currentColor" /><path d="M34 44 V32 a16 16 0 0 1 32 0 V44" fill="none" stroke="currentColor" stroke-width="8" /></symbol>
+          <symbol id="i-back" viewBox="0 0 100 100"><path d="M18 50 H82 M56 24 L82 50 L56 76" stroke="currentColor" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round" /></symbol>
+          <symbol id="i-dots" viewBox="0 0 100 100"><circle cx="50" cy="20" r="8" fill="currentColor" /><circle cx="50" cy="50" r="8" fill="currentColor" /><circle cx="50" cy="80" r="8" fill="currentColor" /></symbol>
+          <symbol id="i-app" viewBox="0 0 100 100"><path d="M48 14 C36 14 29 23 29 34 V47 L23 56 H73 L67 47 V34 C67 23 60 14 48 14 Z" fill="#fff" /><path d="M41 61 a7 7 0 0 0 14 0 Z" fill="#fff" /><g transform="rotate(-38 68 74)"><rect x="46" y="64" width="46" height="20" rx="10" fill="#fff" /><path d="M69 64 H82 a10 10 0 0 1 0 20 H69 Z" fill="#ffd23f" /></g><circle cx="74" cy="20" r="9" fill="#ffd23f" /></symbol>
+        </defs>
+      </svg>
+
+      <!-- ===== persistent background ===== -->
+      <section id="bg" class="clip" data-start="0" data-duration="48.5" data-track-index="0">
+        <div class="glow" id="glowA"></div>
+        <div class="glow" id="glowB"></div>
+        <div id="grid"></div>
+        <div class="cap-deco" id="dk1"></div>
+        <div class="cap-deco" id="dk2"></div>
+        <div class="cap-deco" id="dk3"></div>
+        <div class="cap-deco" id="dk4"></div>
+        <div class="cap-deco" id="dk5"></div>
+      </section>
+
+      <!-- ===== S1 hook ===== -->
+      <section id="s1" class="clip" data-start="0" data-duration="3.75" data-track-index="1">
+        <div class="in" id="s1in">
+          <div class="clock" id="clock">
+            <div class="tick" style="top: 8px"></div>
+            <div class="tick" style="bottom: 8px"></div>
+            <div class="tick" style="top: 95px; left: 8px; width: 26px; height: 12px"></div>
+            <div class="tick" style="top: 95px; left: 182px; width: 26px; height: 12px"></div>
+            <div class="hand" id="hh"></div>
+            <div class="hand" id="mh"></div>
+            <div class="cdot"></div>
+          </div>
+          <div id="s1lab">ساعت ۸ صبح</div>
+          <div class="s1-row" id="s1r1"><div id="w1">مامان</div></div>
+          <div class="s1-row" id="s1r2"><div id="w2">قرصشو</div><div id="w3">خورد؟</div></div>
+          <div class="s1-row" id="s1r3"><div class="sticker" id="w4">بابا چی؟</div></div>
+        </div>
+      </section>
+
+      <!-- ===== S2 brand ===== -->
+      <section id="s2" class="clip" data-start="3.6" data-duration="3.2" data-track-index="1">
+        <div class="in" id="s2in">
+          <div id="appglow"></div>
+          <div id="appicon"><svg viewBox="0 0 100 100"><use href="#i-app" /></svg></div>
+          <div id="wm">دارویار</div>
+          <div id="tag">یادآور داروی <span class="hl-y">مامان و بابا</span></div>
+          <div id="tag2">شما تنظیم می‌کنید · گوشی اون‌ها سر ساعت زنگ می‌خوره</div>
+        </div>
+      </section>
+
+      <!-- ===== S3 child sets the medicine (real Telegram Mini App screens) ===== -->
+      <section id="s3" class="clip" data-start="6.55" data-duration="8.05" data-track-index="1">
+        <div class="in" id="s3in">
+          <div class="cam" id="cam3" data-layout-allow-overflow>
+            <div class="phone" id="ph3">
+              <div class="screen">
+                <div class="vp">
+                  <img class="shot" src="assets/img/tg-newmed.jpg" alt="" />
+                  <div class="cover" id="cv1" style="left: 70px; top: 572px; width: 940px; height: 72px; background: #212d3b; opacity: 0"></div>
+                  <div class="cover" id="cv2" style="left: 70px; top: 852px; width: 940px; height: 74px; background: #212d3b; opacity: 0"></div>
+                  <div class="focus" id="f3a" style="left: 46px; top: 532px; width: 988px; height: 144px"></div>
+                  <div class="focus" id="f3b" style="left: 46px; top: 814px; width: 988px; height: 144px"></div>
+                  <div class="typed" id="ty1" style="top: 580px"></div>
+                  <div class="typed" id="ty2" style="top: 861px"></div>
+                  <div class="hl" id="r3time" style="left: 222px; top: 1088px; width: 825px; height: 188px"></div>
+                  <div class="press" id="p3save" style="left: 46px; top: 1536px; width: 988px; height: 146px"></div>
+                  <img class="shot" id="shot3b" src="assets/img/tg-meds-p.png" alt="" style="opacity: 0" />
+                  <div class="hl" id="r3ban" style="left: 34px; top: 488px; width: 1012px; height: 144px"></div>
+                  <div class="touch" id="t3"><div class="tring"></div></div>
+                </div>
+                <div class="punch"></div>
+              </div>
+            </div>
+          </div>
+          <div class="chiprow"><div class="chip" id="chip3"><svg class="ic" viewBox="0 0 100 100"><use href="#i-person" /></svg>گوشی شما (فرزند)</div></div>
+        </div>
+      </section>
+
+      <!-- ===== S4 parent's phone rings ===== -->
+      <section id="s4" class="clip" data-start="14.3" data-duration="10.5" data-track-index="1">
+        <div class="in" id="s4in">
+          <div class="cam" id="cam4" data-layout-allow-overflow>
+            <div class="wave" id="wv1"></div>
+            <div class="wave" id="wv2"></div>
+            <div class="wave" id="wv3"></div>
+            <svg class="vib" id="vibL" viewBox="0 0 90 240"><path d="M70 30 Q30 120 70 210 M40 60 Q14 120 40 180" stroke="#ffd23f" stroke-width="10" fill="none" stroke-linecap="round" /></svg>
+            <svg class="vib" id="vibR" viewBox="0 0 90 240"><path d="M20 30 Q60 120 20 210 M50 60 Q76 120 50 180" stroke="#ffd23f" stroke-width="10" fill="none" stroke-linecap="round" /></svg>
+            <div class="phone" id="ph4">
+              <div class="screen">
+                <div class="vp">
+                  <div class="lock" id="lock4">
+                    <div class="lk-time"><span id="lk1">۷:۵۹</span><span id="lk2">۸:۰۰</span></div>
+                    <div class="lk-date">شنبه، ۲۶ مهر</div>
+                    <svg class="lk-lock" viewBox="0 0 100 100"><use href="#i-lock" /></svg>
+                  </div>
+                  <div class="alarm" id="al4">
+                    <div class="al-sb"><span>۸:۰۰</span><div class="bat"></div></div>
+                    <svg id="alIcon" viewBox="0 0 100 100"><use href="#i-alarm" /></svg>
+                    <div class="al-title" id="alT">وقت داروست</div>
+                    <div class="al-time" id="alH">ساعت ۸:۰۰</div>
+                    <div class="al-card" id="alC"><svg class="ic" viewBox="0 0 100 100"><use href="#i-pill" /></svg>قرص فشار — یک عدد</div>
+                    <div class="al-btn" id="btnOk"><svg class="ic" viewBox="0 0 100 100"><use href="#i-checkc" /></svg>خوردم</div>
+                    <div class="al-btn" id="btnNo"><svg class="ic" viewBox="0 0 100 100"><use href="#i-x" /></svg>نخوردم</div>
+                  </div>
+                  <div class="done" id="dn4">
+                    <div id="dnC"><svg viewBox="0 0 100 100"><path id="dnP" pathLength="100" d="M22 52 L42 72 L80 30" stroke="#fff" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="100" stroke-dashoffset="100" /></svg></div>
+                    <div class="dn-t" id="dnT">ثبت شد</div>
+                    <div class="dn-s" id="dnS">سلامت باشید</div>
+                  </div>
+                  <div class="flash" id="fl4"></div>
+                  <div class="touch" id="t4"><div class="tring"></div></div>
+                </div>
+                <div class="punch"></div>
+              </div>
+            </div>
+          </div>
+          <div class="chiprow"><div class="chip" id="chip4"><svg class="ic" viewBox="0 0 100 100"><use href="#i-phone" /></svg>گوشی مامان (اندروید)</div></div>
+        </div>
+      </section>
+
+      <!-- ===== S5 telegram alerts ===== -->
+      <section id="s5" class="clip" data-start="24.45" data-duration="6.4" data-track-index="1">
+        <div class="in" id="s5in">
+          <div class="cam" id="cam5" data-layout-allow-overflow>
+            <div class="phone" id="ph5">
+              <div class="screen">
+                <div class="vp">
+                  <div class="tg">
+                    <div class="tg-sb"><span>۹:۳۱</span><div class="bat"></div></div>
+                    <div class="tg-head">
+                      <svg class="back" viewBox="0 0 100 100"><use href="#i-back" /></svg>
+                      <div class="tg-av"><svg class="ic" viewBox="0 0 100 100"><use href="#i-people" /></svg></div>
+                      <div class="tg-title"><b>خانواده</b><span>۴ عضو</span></div>
+                      <svg class="dots" viewBox="0 0 100 100"><use href="#i-dots" /></svg>
+                    </div>
+                    <div class="tg-msgs">
+                      <div class="tg-g" id="g1">
+                        <div class="tg-date" id="tgd">امروز</div>
+                        <div class="tg-row" id="r1">
+                          <div class="bav"><svg class="ic" viewBox="0 0 100 100"><use href="#i-app" /></svg></div>
+                          <div class="tg-bub">
+                            <div class="tg-from">دارویار</div>
+                            <div class="tg-line"><svg class="ic" viewBox="0 0 100 100"><use href="#i-check" /></svg><span><b>مامان</b> داروی ساعت ۸:۰۰ را خورد</span></div>
+                            <div>• قرص فشار — یک عدد</div>
+                            <div class="tg-time">۸:۰۱</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="tg-row" id="r2">
+                        <div class="bav"><svg class="ic" viewBox="0 0 100 100"><use href="#i-app" /></svg></div>
+                        <div class="tg-bub" id="b2">
+                          <div class="tg-from">دارویار</div>
+                          <div class="tg-line"><svg class="ic" viewBox="0 0 100 100"><use href="#i-warn" /></svg><span><b>بابا</b>: داروی ساعت ۹:۰۰ بی‌جواب ماند</span></div>
+                          <div>• ویتامین D</div>
+                          <div class="tg-mut">تا ۳۰ دقیقه بعد از زنگ، هیچ دکمه‌ای زده نشد.</div>
+                          <div class="tg-time">۹:۳۰</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="tg-input">
+                      <div class="tg-menu"><svg class="ic" viewBox="0 0 100 100"><use href="#i-pillw" /></svg>مدیریت داروها</div>
+                      <div class="tg-ph">پیام</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="punch"></div>
+              </div>
+            </div>
+          </div>
+          <div class="chiprow"><div class="chip" id="chip5"><svg class="ic" viewBox="0 0 100 100"><use href="#i-chat" /></svg>تلگرام · گروه خانوادگی</div></div>
+        </div>
+      </section>
+
+      <!-- ===== S6 caregiver app (real screen) ===== -->
+      <section id="s6" class="clip" data-start="30.55" data-duration="4.9" data-track-index="1">
+        <div class="in" id="s6in">
+          <div class="cam" id="cam6" data-layout-allow-overflow>
+            <div class="phone" id="ph6">
+              <div class="screen">
+                <div class="vp">
+                  <img class="shot" src="assets/img/app-carehome-p.png" alt="" />
+                  <div class="hl" id="r6" style="left: 674px; top: 478px; width: 346px; height: 96px"></div>
+                </div>
+                <div class="punch"></div>
+              </div>
+            </div>
+          </div>
+          <div class="chiprow"><div class="chip" id="chip6"><svg class="ic" viewBox="0 0 100 100"><use href="#i-phone" /></svg>اپ دارویار · گوشی شما</div></div>
+        </div>
+      </section>
+
+      <!-- ===== S7 android only ===== -->
+      <section id="s7" class="clip" data-start="35.15" data-duration="5.5" data-track-index="1">
+        <div class="in" id="s7in">
+          <div class="nb"><div id="nbl">یه نکتهٔ مهم</div></div>
+          <div class="ncard" id="cardA">
+            <div class="nicon" id="niA"><svg class="ic" viewBox="0 0 100 100"><use href="#i-phone" /></svg></div>
+            <div class="ntxt"><small>گوشی پدر و مادر</small><b id="bigA">فقط اندروید</b><span>زنگ دارو و دکمه‌ها روی اندروید کار می‌کنه</span></div>
+          </div>
+          <div class="ncard" id="cardB">
+            <div class="nicon" id="niB"><svg class="ic" viewBox="0 0 100 100"><use href="#i-people" /></svg></div>
+            <div class="ntxt"><small>گوشی شما (فرزندها)</small><b>هر گوشی‌ای</b><span>تلگرام روی آیفون و اندروید · اپ دارویار روی اندروید</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== S8 emotional close ===== -->
+      <section id="s8" class="clip" data-start="40.45" data-duration="3.6" data-track-index="1">
+        <div class="in" id="s8in">
+          <div class="cl" id="l1">همین شهر باشی</div>
+          <div class="cl" id="l2">یا اون سر دنیا…</div>
+          <div class="cl" id="l3">حواست به</div>
+          <div class="cl" id="l4">مامان و بابا</div>
+          <div class="cl" id="l5">هست.</div>
+          <svg id="ecg" viewBox="0 0 900 160"><path id="ecgP" pathLength="100" d="M0 80 H300 L330 80 L350 30 L375 140 L400 10 L425 120 L445 80 H560 L580 60 L600 80 H900" stroke="#3d6bff" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="100" stroke-dashoffset="100" /></svg>
+        </div>
+      </section>
+
+      <!-- ===== S9 end card ===== -->
+      <section id="s9" class="clip" data-start="43.85" data-duration="4.65" data-track-index="1">
+        <div class="in" id="s9in">
+          <div id="tileGlow"></div>
+          <div id="tile"><img src="assets/img/logo.jpg" alt="" /></div>
+          <div id="nm">علیرضا تهرانی</div>
+          <div id="nmEn">Alireza Tehrani</div>
+          <div id="pgLab">پیج اینستاگرام</div>
+          <div class="handlerow"><div id="handle">@alirezaai.ca</div></div>
+        </div>
+      </section>
+
+      <!-- ===== subtitles ===== -->
+      <div id="c1" class="clip cap" data-start="6.9" data-duration="3.6" data-track-index="2"><div class="capin">داروها و ساعت‌ها رو <span class="hl-y">شما</span> وارد می‌کنید</div></div>
+      <div id="c2" class="clip cap" data-start="10.55" data-duration="3.85" data-track-index="2"><div class="capin">مامان و بابا <span class="hl-y">لازم نیست</span> هیچی تایپ کنن</div></div>
+      <div id="c3" class="clip cap" data-start="14.65" data-duration="3.0" data-track-index="2"><div class="capin">سر ساعت، گوشی مامان <span class="hl-y">مثل ساعت زنگ‌دار</span> زنگ می‌خوره</div></div>
+      <div id="c4" class="clip cap" data-start="17.7" data-duration="2.85" data-track-index="2"><div class="capin">حتی وقتی <span class="hl-y">صفحه خاموشه</span> یا اینترنت نداره</div></div>
+      <div id="c5" class="clip cap" data-start="20.6" data-duration="3.9" data-track-index="2"><div class="capin">مامان فقط یه دکمه می‌زنه: <span class="hl-g">«خوردم»</span> یا <span class="hl-r">«نخوردم»</span></div></div>
+      <div id="c6" class="clip cap" data-start="24.85" data-duration="3.0" data-track-index="2"><div class="capin">شما <span class="hl-y">توی تلگرام</span> خبردار می‌شید</div></div>
+      <div id="c7" class="clip cap" data-start="27.9" data-duration="2.6" data-track-index="2"><div class="capin">اگه بزنن «نخوردم» یا جواب ندن، <span class="hl-y">هشدار می‌گیرید</span></div></div>
+      <div id="c8" class="clip cap" data-start="30.85" data-duration="4.25" data-track-index="2"><div class="capin">یا <span class="hl-y">توی خود اپ دارویار</span>، روی گوشی خودتون</div></div>
+      <div id="c9" class="clip cap" data-start="35.5" data-duration="4.85" data-track-index="2"><div class="capin">سمت پدر و مادر، گوشی <span class="hl-y">حتماً باید اندروید</span> باشه</div></div>
+
+      <!-- ===== sound effects (no music) ===== -->
+      <audio id="a01" src="assets/sfx/key-press.mp3" data-start="0.85" data-duration="0.43" data-track-index="10" data-volume="0.6"></audio>
+      <audio id="a02" src="assets/sfx/pop.mp3" data-start="0.95" data-duration="0.72" data-track-index="11" data-volume="0.55"></audio>
+      <audio id="a03" src="assets/sfx/pop.mp3" data-start="1.5" data-duration="0.72" data-track-index="12" data-volume="0.5"></audio>
+      <audio id="a04" src="assets/sfx/ping.mp3" data-start="2.35" data-duration="1.32" data-track-index="10" data-volume="0.5"></audio>
+      <audio id="a05" src="assets/sfx/whoosh.mp3" data-start="3.3" data-duration="0.57" data-track-index="11" data-volume="0.6"></audio>
+      <audio id="a06" src="assets/sfx/impact-bass-1.mp3" data-start="3.66" data-duration="2.1" data-track-index="12" data-volume="0.6"></audio>
+      <audio id="a07" src="assets/sfx/sparkle.mp3" data-start="4.1" data-duration="1.8" data-track-index="13" data-volume="0.4"></audio>
+      <audio id="a08" src="assets/sfx/whoosh-short.mp3" data-start="6.5" data-duration="0.57" data-track-index="10" data-volume="0.55"></audio>
+      <audio id="a09" src="assets/sfx/click-soft.mp3" data-start="7.45" data-duration="0.36" data-track-index="11" data-volume="0.75"></audio>
+      <audio id="a10" src="assets/sfx/typing.mp3" data-start="7.65" data-duration="1.25" data-track-index="12" data-volume="0.55"></audio>
+      <audio id="a11" src="assets/sfx/click-soft.mp3" data-start="9.0" data-duration="0.36" data-track-index="10" data-volume="0.75"></audio>
+      <audio id="a12" src="assets/sfx/key-press.mp3" data-start="9.18" data-duration="0.43" data-track-index="11" data-volume="0.5"></audio>
+      <audio id="a13" src="assets/sfx/key-press.mp3" data-start="9.4" data-duration="0.43" data-track-index="12" data-volume="0.5"></audio>
+      <audio id="a14" src="assets/sfx/key-press.mp3" data-start="9.62" data-duration="0.43" data-track-index="13" data-volume="0.5"></audio>
+      <audio id="a15" src="assets/sfx/pop.mp3" data-start="10.0" data-duration="0.72" data-track-index="10" data-volume="0.5"></audio>
+      <audio id="a16" src="assets/sfx/click.mp3" data-start="11.35" data-duration="0.36" data-track-index="11" data-volume="0.75"></audio>
+      <audio id="a17" src="assets/sfx/ping.mp3" data-start="12.6" data-duration="1.32" data-track-index="12" data-volume="0.5"></audio>
+      <audio id="a18" src="assets/sfx/whoosh.mp3" data-start="14.2" data-duration="0.57" data-track-index="10" data-volume="0.6"></audio>
+      <audio id="a19" src="assets/sfx/click-soft.mp3" data-start="15.45" data-duration="0.36" data-track-index="11" data-volume="0.6"></audio>
+      <audio id="a20" src="assets/sfx/alarm-ring.mp3" data-start="15.8" data-duration="6.84" data-track-index="12" data-volume="0.55"></audio>
+      <audio id="a21" src="assets/sfx/pop.mp3" data-start="16.75" data-duration="0.72" data-track-index="13" data-volume="0.55"></audio>
+      <audio id="a22" src="assets/sfx/pop.mp3" data-start="17.0" data-duration="0.72" data-track-index="14" data-volume="0.55"></audio>
+      <audio id="a23" src="assets/sfx/click.mp3" data-start="22.6" data-duration="0.36" data-track-index="10" data-volume="0.85"></audio>
+      <audio id="a24" src="assets/sfx/chime.mp3" data-start="22.75" data-duration="2.5" data-track-index="11" data-volume="0.6"></audio>
+      <audio id="a25" src="assets/sfx/whoosh.mp3" data-start="24.35" data-duration="0.57" data-track-index="13" data-volume="0.6"></audio>
+      <audio id="a26" src="assets/sfx/notification.mp3" data-start="25.3" data-duration="2.3" data-track-index="10" data-volume="0.6"></audio>
+      <audio id="a27" src="assets/sfx/notification.mp3" data-start="27.75" data-duration="2.3" data-track-index="11" data-volume="0.6"></audio>
+      <audio id="a28" src="assets/sfx/whoosh-short.mp3" data-start="30.4" data-duration="0.57" data-track-index="12" data-volume="0.55"></audio>
+      <audio id="a29" src="assets/sfx/pop.mp3" data-start="32.05" data-duration="0.72" data-track-index="10" data-volume="0.5"></audio>
+      <audio id="a30" src="assets/sfx/whoosh.mp3" data-start="35.05" data-duration="0.57" data-track-index="11" data-volume="0.6"></audio>
+      <audio id="a31" src="assets/sfx/ping.mp3" data-start="35.65" data-duration="1.32" data-track-index="12" data-volume="0.5"></audio>
+      <audio id="a32" src="assets/sfx/pop.mp3" data-start="37.0" data-duration="0.72" data-track-index="13" data-volume="0.5"></audio>
+      <audio id="a33" src="assets/sfx/whoosh-short.mp3" data-start="40.45" data-duration="0.57" data-track-index="10" data-volume="0.5"></audio>
+      <audio id="a34" src="assets/sfx/pop.mp3" data-start="41.6" data-duration="0.72" data-track-index="11" data-volume="0.5"></audio>
+      <audio id="a35" src="assets/sfx/impact-bass-1.mp3" data-start="43.98" data-duration="2.1" data-track-index="12" data-volume="0.65"></audio>
+      <audio id="a36" src="assets/sfx/sparkle.mp3" data-start="44.6" data-duration="1.8" data-track-index="13" data-volume="0.4"></audio>
+      <audio id="a37" src="assets/sfx/pop.mp3" data-start="45.1" data-duration="0.72" data-track-index="14" data-volume="0.5"></audio>
+    </div>
+
+    <script>
+      (function () {
+        const K = 516 / 1080; // phone screen scale
+        const PX = 282, PY = 187; // screen origin inside the frame
+
+        function build() {
+          const tl = gsap.timeline({ paused: true });
+          const q = (s) => document.querySelector(s);
+
+          // camera: put screen point (sx,sy) at frame point (tx,ty) with zoom s
+          const cam = (sel, t, d, s, sx, sy, tx, ty, ease) => {
+            const fx = PX + sx * K, fy = PY + sy * K;
+            tl.to(sel, { scale: s, x: tx - s * fx, y: ty - s * fy, duration: d, ease: ease || "power2.inOut" }, t);
+          };
+          const camReset = (sel, t, d) => tl.to(sel, { scale: 1, x: 0, y: 0, duration: d, ease: "power2.inOut" }, t);
+
+          // touch indicator: appear at a, move to b, tap at tapT (vp coords)
+          const touch = (sel, showT, a, moveT, b, tapT, hideT) => {
+            tl.fromTo(sel, { x: a[0], y: a[1], opacity: 0, scale: 1.3 }, { opacity: 1, scale: 1, duration: 0.2, ease: "power2.out", immediateRender: false }, showT);
+            if (moveT != null) tl.to(sel, { x: b[0], y: b[1], duration: tapT - moveT - 0.05, ease: "power2.inOut" }, moveT);
+            tl.to(sel, { scale: 0.78, duration: 0.08, ease: "power2.in" }, tapT);
+            tl.to(sel, { scale: 1, duration: 0.18, ease: "back.out(2)" }, tapT + 0.08);
+            tl.fromTo(sel + " .tring", { scale: 0.8, opacity: 0.9 }, { scale: 2.1, opacity: 0, duration: 0.5, ease: "power2.out", immediateRender: false }, tapT);
+            if (hideT != null) tl.to(sel, { opacity: 0, duration: 0.2 }, hideT);
+          };
+
+          // highlight ring pulse
+          const ring = (sel, t, holdEnd) => {
+            tl.fromTo(sel, { opacity: 0, scale: 1.12 }, { opacity: 1, scale: 1, duration: 0.35, ease: "back.out(2)" }, t);
+            tl.to(sel, { opacity: 0, duration: 0.3 }, holdEnd);
+          };
+
+          // typing: one span per prefix, toggled at exact times (seek-safe)
+          const typeIn = (boxSel, text, t0, dt) => {
+            const box = q(boxSel);
+            const chars = Array.from(text);
+            const spans = chars.map((_, i) => {
+              const s = document.createElement("span");
+              s.textContent = chars.slice(0, i + 1).join("");
+              box.appendChild(s);
+              return s;
+            });
+            spans.forEach((s, i) => {
+              const t = t0 + i * dt;
+              tl.set(s, { opacity: 1 }, t);
+              if (i > 0) tl.set(spans[i - 1], { opacity: 0 }, t);
+            });
+          };
+
+          /* ---------------- background ambience ---------------- */
+          tl.fromTo("#glowA", { scale: 1, opacity: 0.85 }, { scale: 1.12, opacity: 1, duration: 4, yoyo: true, repeat: 11, ease: "sine.inOut" }, 0);
+          tl.fromTo("#glowB", { x: 0, y: 0 }, { x: -260, y: -180, duration: 48.5, ease: "none" }, 0);
+          tl.fromTo("#grid", { y: 0 }, { y: -108, duration: 48.5, ease: "none" }, 0);
+          [["#dk1", 40], ["#dk2", -50], ["#dk3", 60], ["#dk4", -45], ["#dk5", 35]].forEach(([s, r], i) => {
+            tl.fromTo(s, { rotation: -20 + i * 17 }, { rotation: -20 + i * 17 + r, duration: 48.5, ease: "none", transformOrigin: "50% 50%" }, 0);
+          });
+
+          /* ---------------- S1 hook 0–3.75 ---------------- */
+          tl.fromTo("#clock", { scale: 0.4, opacity: 0, rotation: -25 }, { scale: 1, opacity: 1, rotation: 0, duration: 0.55, ease: "back.out(1.8)" }, 0.05);
+          tl.fromTo("#mh", { rotation: 240 }, { rotation: 360, duration: 0.8, ease: "power2.inOut" }, 0.08);
+          tl.fromTo("#hh", { rotation: 230 }, { rotation: 240, duration: 0.8, ease: "power2.inOut" }, 0.08);
+          tl.to("#clock", { scale: 1.08, duration: 0.08, yoyo: true, repeat: 1, ease: "power1.inOut" }, 0.86);
+          tl.fromTo("#s1lab", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 0.3);
+          tl.fromTo("#w1", { scale: 0.4, opacity: 0, y: 70 }, { scale: 1, opacity: 1, y: 0, duration: 0.5, ease: "back.out(2)" }, 0.95);
+          tl.fromTo("#w2", { x: 120, opacity: 0 }, { x: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 1.25);
+          tl.fromTo("#w3", { scale: 1.7, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4, ease: "power4.out" }, 1.5);
+          tl.fromTo("#w4", { scale: 0, rotation: -25, opacity: 0 }, { scale: 1, rotation: -4, opacity: 1, duration: 0.5, ease: "back.out(2.2)" }, 2.35);
+          tl.to("#w4", { rotation: 3, duration: 0.5, yoyo: true, repeat: 1, ease: "sine.inOut" }, 2.85);
+          tl.to("#s1in", { y: -180, opacity: 0, duration: 0.4, ease: "power2.in" }, 3.32);
+
+          /* ---------------- S2 brand 3.6–6.8 ---------------- */
+          tl.fromTo("#appicon", { scale: 0, rotation: -35 }, { scale: 1, rotation: 0, duration: 0.7, ease: "back.out(1.7)" }, 3.62);
+          tl.fromTo("#appglow", { scale: 0.5, opacity: 0.9 }, { scale: 1.6, opacity: 0, duration: 0.9, ease: "power2.out" }, 3.78);
+          tl.fromTo("#wm", { clipPath: "inset(0% 0% 0% 100%)", y: 20 }, { clipPath: "inset(0% 0% 0% 0%)", y: 0, duration: 0.6, ease: "power3.out" }, 4.02);
+          tl.fromTo("#tag", { y: 34, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 4.45);
+          tl.fromTo("#tag2", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 4.75);
+          tl.to("#appicon", { y: -14, duration: 0.9, yoyo: true, repeat: 1, ease: "sine.inOut" }, 4.4);
+          tl.to("#s2in", { scale: 0.86, opacity: 0, duration: 0.35, ease: "power2.in" }, 6.42);
+
+          /* ---------------- S3 child adds the medicine 6.55–14.6 ---------------- */
+          tl.fromTo("#ph3", { y: 1150, rotation: 8 }, { y: 0, rotation: 0, duration: 0.75, ease: "power3.out" }, 6.55);
+          tl.fromTo("#chip3", { y: -40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 6.85);
+          cam("#cam3", 7.2, 0.75, 1.75, 540, 1000, 540, 800);
+          touch("#t3", 7.3, [760, 640], null, null, 7.45, 7.7);
+          tl.fromTo("#f3a", { opacity: 0 }, { opacity: 1, duration: 0.15 }, 7.45);
+          tl.fromTo("#cv1", { opacity: 0 }, { opacity: 1, duration: 0.05 }, 7.6);
+          typeIn("#ty1", "قرص فشار", 7.65, 0.15);
+          tl.to("#f3a", { opacity: 0, duration: 0.15 }, 8.95);
+          touch("#t3", 8.85, [700, 905], null, null, 9.0, 9.25);
+          tl.fromTo("#f3b", { opacity: 0 }, { opacity: 1, duration: 0.15, immediateRender: false }, 9.0);
+          tl.fromTo("#cv2", { opacity: 0 }, { opacity: 1, duration: 0.05 }, 9.12);
+          typeIn("#ty2", "یک عدد", 9.15, 0.1);
+          tl.to("#f3b", { opacity: 0, duration: 0.15 }, 9.95);
+          ring("#r3time", 10.0, 10.85);
+          touch("#t3", 10.85, [820, 1350], 10.95, [560, 1609], 11.35, 11.65);
+          tl.fromTo("#p3save", { opacity: 0 }, { opacity: 1, duration: 0.08 }, 11.35);
+          tl.to("#p3save", { opacity: 0, duration: 0.2 }, 11.5);
+          camReset("#cam3", 11.55, 0.6);
+          tl.fromTo("#shot3b", { opacity: 0 }, { opacity: 1, duration: 0.35, ease: "power1.inOut" }, 11.75);
+          cam("#cam3", 12.25, 0.6, 1.6, 540, 700, 540, 640);
+          ring("#r3ban", 12.6, 13.75);
+          tl.to("#r3ban", { scale: 1.03, duration: 0.3, yoyo: true, repeat: 1, ease: "sine.inOut" }, 13.0);
+          tl.to("#s3in", { x: -1100, duration: 0.5, ease: "power3.in" }, 14.1);
+
+          /* ---------------- S4 the parent's phone rings 14.3–24.8 ---------------- */
+          tl.fromTo("#s4in", { x: 1100 }, { x: 0, duration: 0.6, ease: "power3.out" }, 14.3);
+          tl.fromTo("#chip4", { y: -40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 14.7);
+          tl.to("#lk1", { y: -70, opacity: 0, duration: 0.22, ease: "power2.in" }, 15.45);
+          tl.fromTo("#lk2", { y: 70, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, 15.5);
+          // screen wakes up
+          tl.fromTo("#fl4", { opacity: 0 }, { opacity: 0.6, duration: 0.08, ease: "none" }, 15.8);
+          tl.to("#fl4", { opacity: 0, duration: 0.4, ease: "power2.out" }, 15.88);
+          tl.fromTo("#al4", { opacity: 0, scale: 1.06 }, { opacity: 1, scale: 1, duration: 0.35, ease: "power2.out" }, 15.82);
+          tl.fromTo("#alIcon", { scale: 0.3 }, { scale: 1, duration: 0.45, ease: "back.out(2.4)" }, 15.9);
+          tl.fromTo("#alT", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power3.out" }, 16.0);
+          tl.fromTo("#alH", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power3.out" }, 16.12);
+          tl.fromTo("#alC", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power3.out" }, 16.24);
+          tl.to("#lock4", { opacity: 0, duration: 0.05 }, 16.2);
+          tl.fromTo("#btnOk", { scale: 0.3, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.5, ease: "back.out(1.8)" }, 16.75);
+          tl.fromTo("#btnNo", { scale: 0.3, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.5, ease: "back.out(1.8)" }, 17.0);
+          tl.to("#btnOk", { scale: 1.045, duration: 0.45, yoyo: true, repeat: 7, ease: "sine.inOut" }, 17.6);
+          // ringing: vibration bursts, icon wiggle, waves
+          for (let k = 0; k < 7; k++) {
+            const t0 = 15.8 + k;
+            tl.fromTo("#ph4", { x: -8, rotation: -1.4 }, { x: 8, rotation: 1.4, duration: 0.045, repeat: 13, yoyo: true, ease: "sine.inOut", immediateRender: false }, t0);
+            tl.set("#ph4", { x: 0, rotation: 0 }, t0 + 0.63);
+            tl.fromTo("#alIcon", { rotation: -16 }, { rotation: 16, duration: 0.07, repeat: 7, yoyo: true, ease: "sine.inOut", immediateRender: false }, t0 + 0.05);
+            tl.set("#alIcon", { rotation: 0 }, t0 + 0.62);
+            tl.fromTo(["#vibL", "#vibR"], { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.1, immediateRender: false }, t0);
+            tl.to(["#vibL", "#vibR"], { opacity: 0, duration: 0.15 }, t0 + 0.5);
+          }
+          const waves = ["#wv1", "#wv2", "#wv3"];
+          for (let i = 0; i * 0.5 + 15.8 <= 21.9; i++) {
+            tl.fromTo(waves[i % 3], { scale: 0.92, opacity: 0.8 }, { scale: 1.95, opacity: 0, duration: 1.4, ease: "power1.out", immediateRender: false }, 15.8 + i * 0.5);
+          }
+          tl.fromTo("#cam4", { scale: 1, x: 0, y: 0 }, { scale: 1.08, x: -43.2, y: -60.8, duration: 5.2, ease: "sine.inOut" }, 16.0);
+          cam("#cam4", 21.3, 0.8, 1.35, 540, 1465, 540, 900);
+          touch("#t4", 21.75, [900, 1180], 21.95, [600, 1450], 22.6, 22.9);
+          tl.to("#btnOk", { scale: 0.93, duration: 0.08 }, 22.6);
+          tl.to("#btnOk", { scale: 1, duration: 0.2, ease: "back.out(2)" }, 22.68);
+          tl.fromTo("#dn4", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 22.72);
+          tl.to("#al4", { opacity: 0, duration: 0.05 }, 23.05);
+          tl.fromTo("#dnC", { scale: 0 }, { scale: 1, duration: 0.5, ease: "back.out(2)" }, 22.78);
+          tl.fromTo("#dnP", { strokeDashoffset: 100 }, { strokeDashoffset: 0, duration: 0.4, ease: "power2.out" }, 23.0);
+          tl.fromTo("#dnT", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power3.out" }, 23.0);
+          tl.fromTo("#dnS", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power3.out" }, 23.15);
+          cam("#cam4", 23.1, 0.7, 1.08, 540, 1200, 540, 760);
+          tl.to("#s4in", { x: -1100, duration: 0.5, ease: "power3.in" }, 24.3);
+
+          /* ---------------- S5 telegram 24.45–30.85 ---------------- */
+          const shift = q("#r2").offsetHeight + 26;
+          tl.fromTo("#s5in", { x: 1100 }, { x: 0, duration: 0.6, ease: "power3.out" }, 24.45);
+          tl.fromTo("#chip5", { y: -40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 24.8);
+          cam("#cam5", 24.95, 0.7, 1.45, 540, 1850, 540, 900);
+          tl.fromTo("#g1", { y: shift }, { y: 0, duration: 0.45, ease: "power3.out" }, 27.75);
+          tl.fromTo("#tgd", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 25.2);
+          tl.fromTo("#r1", { opacity: 0, y: 60, scale: 0.85 }, { opacity: 1, y: 0, scale: 1, duration: 0.45, ease: "back.out(1.6)" }, 25.3);
+          tl.fromTo("#r2", { opacity: 0, y: 80, scale: 0.85 }, { opacity: 1, y: 0, scale: 1, duration: 0.45, ease: "back.out(1.6)" }, 27.75);
+          tl.fromTo("#b2", { boxShadow: "0 0 0 0px rgba(255,200,61,0)" }, { boxShadow: "0 0 0 10px rgba(255,200,61,0.85)", duration: 0.3, yoyo: true, repeat: 3, ease: "sine.inOut" }, 28.3);
+          tl.to("#s5in", { x: -1100, duration: 0.5, ease: "power3.in" }, 30.35);
+
+          /* ---------------- S6 caregiver app 30.55–35.45 ---------------- */
+          tl.fromTo("#s6in", { x: 1100 }, { x: 0, duration: 0.6, ease: "power3.out" }, 30.55);
+          tl.fromTo("#chip6", { y: -40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 30.9);
+          cam("#cam6", 31.25, 0.75, 1.7, 540, 484, 540, 600);
+          ring("#r6", 32.05, 34.6);
+          tl.to("#r6", { scale: 1.06, duration: 0.4, yoyo: true, repeat: 3, ease: "sine.inOut" }, 32.5);
+          tl.to("#s6in", { x: -1100, duration: 0.5, ease: "power3.in" }, 34.95);
+
+          /* ---------------- S7 android only 35.15–40.65 ---------------- */
+          tl.fromTo("#nbl", { scale: 0, rotation: -8 }, { scale: 1, rotation: -2, duration: 0.45, ease: "back.out(2)" }, 35.3);
+          tl.fromTo("#cardA", { x: 700, rotation: 6, opacity: 0 }, { x: 0, rotation: 0, opacity: 1, duration: 0.6, ease: "power3.out" }, 35.5);
+          tl.fromTo("#niA", { scale: 0 }, { scale: 1, duration: 0.45, ease: "back.out(2.2)" }, 35.75);
+          tl.to("#bigA", { scale: 1.07, duration: 0.3, yoyo: true, repeat: 1, ease: "sine.inOut", transformOrigin: "100% 50%" }, 36.2);
+          tl.fromTo("#cardB", { x: -700, rotation: -6, opacity: 0 }, { x: 0, rotation: 0, opacity: 1, duration: 0.6, ease: "power3.out" }, 36.85);
+          tl.fromTo("#niB", { scale: 0 }, { scale: 1, duration: 0.45, ease: "back.out(2.2)" }, 37.1);
+          tl.to("#cardA", { y: -10, duration: 1.2, yoyo: true, repeat: 1, ease: "sine.inOut" }, 37.6);
+          tl.to("#cardB", { y: 10, duration: 1.2, yoyo: true, repeat: 1, ease: "sine.inOut" }, 37.6);
+          tl.to("#s7in", { y: -90, opacity: 0, duration: 0.4, ease: "power2.in" }, 40.2);
+
+          /* ---------------- S8 close 40.45–44.05 ---------------- */
+          tl.fromTo("#l1", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 40.55);
+          tl.fromTo("#l2", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 40.85);
+          tl.fromTo("#l3", { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 41.3);
+          tl.fromTo("#l4", { scale: 0.4, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.5, ease: "back.out(2)" }, 41.6);
+          tl.fromTo("#l5", { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 41.85);
+          tl.fromTo("#ecgP", { strokeDashoffset: 100 }, { strokeDashoffset: 0, duration: 1.0, ease: "power1.inOut" }, 41.9);
+          tl.to("#s8in", { scale: 0.92, opacity: 0, duration: 0.35, ease: "power2.in" }, 43.7);
+
+          /* ---------------- S9 end card 43.85–48.5 ---------------- */
+          tl.fromTo("#tile", { scale: 0, rotation: -20 }, { scale: 1, rotation: 0, duration: 0.7, ease: "back.out(1.7)" }, 43.95);
+          tl.fromTo("#tileGlow", { scale: 0.5, opacity: 0.9 }, { scale: 1.7, opacity: 0, duration: 1.0, ease: "power2.out" }, 44.1);
+          tl.fromTo("#nm", { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 44.45);
+          tl.fromTo("#nmEn", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 44.65);
+          tl.fromTo("#pgLab", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 44.85);
+          tl.fromTo("#handle", { scale: 0.3, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.5, ease: "back.out(2)" }, 45.05);
+          tl.to("#tile", { y: -12, duration: 1.4, yoyo: true, repeat: 1, ease: "sine.inOut" }, 45.4);
+          tl.to("#handle", { scale: 1.05, duration: 0.6, yoyo: true, repeat: 3, ease: "sine.inOut" }, 45.8);
+
+          /* ---------------- subtitles ---------------- */
+          document.querySelectorAll(".cap").forEach((c) => {
+            const s = parseFloat(c.dataset.start), d = parseFloat(c.dataset.duration);
+            const inner = c.querySelector(".capin");
+            tl.fromTo(inner, { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, s);
+            tl.to(inner, { y: -10, opacity: 0, duration: 0.2, ease: "power2.in" }, s + d - 0.22);
+          });
+
+          return tl;
+        }
+
+        document.fonts.ready.then(() => {
+          const tl = build();
+          window.__timelines["main"] = tl;
+          if (window.__hfForceTimelineRebind) window.__hfForceTimelineRebind();
+        });
+      })();
+    </script>
+  </body>
+</html>
