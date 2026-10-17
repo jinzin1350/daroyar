@@ -1,0 +1,13 @@
+{
+  "name": "daroyar-bot",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "check": "wrangler deploy --dry-run --outdir dist"
+  },
+  "devDependencies": {
+    "aedes": "^1.2.0",
+    "wrangler": "4.151.1"
+  }
+}

@@ -1,0 +1,18 @@
+name = "daroyar-bot"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+workers_dev = true
+
+# Every 2 minutes: read the parents' phones' reports and send alerts.
+[triggers]
+crons = ["*/2 * * * *"]
+
+[[durable_objects.bindings]]
+name = "FAMILY"
+class_name = "Family"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Family"]
+
+# TELEGRAM_BOT_TOKEN is a secret (set by the deploy workflow), never in this file.

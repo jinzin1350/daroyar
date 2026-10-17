@@ -1,0 +1,100 @@
+name: Deploy Telegram bot
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'bot/**'
+      - '.github/workflows/deploy-bot.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-bot
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bot
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: bot/package-lock.json
+
+      - run: npm ci
+
+      # Includes a check that the bot decrypts exactly what the Android app encrypts.
+      - name: Unit tests
+        run: npm test
+
+      - name: Check secrets
+        id: secrets
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          missing=""
+          [ -n "$CF_TOKEN" ] || missing="$missing CLOUDFLARE_API_TOKEN"
+          [ -n "$CF_ACCOUNT" ] || missing="$missing CLOUDFLARE_ACCOUNT_ID"
+          [ -n "$TG_TOKEN" ] || missing="$missing TELEGRAM_BOT_TOKEN"
+          if [ -n "$missing" ]; then
+            echo "::warning::Tests passed. Deploy skipped — missing secrets:$missing"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy to Cloudflare
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -o pipefail
+          npx wrangler deploy 2>&1 | tee deploy.log
+
+      - name: Give the bot its Telegram token
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: printf '%s' "$TELEGRAM_BOT_TOKEN" | npx wrangler secret put TELEGRAM_BOT_TOKEN
+
+      - name: Connect the bot to Telegram
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          URL=$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' deploy.log | head -1)
+          if [ -z "$URL" ]; then
+            echo "::error::No workers.dev address in the deploy output. In Cloudflare open Workers & Pages once and pick a workers.dev subdomain, then run this workflow again."
+            exit 1
+          fi
+          SECRET=$(printf '%s' "$TELEGRAM_BOT_TOKEN" | sha256sum | cut -c1-32)
+          curl -fsS "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
+            -H 'content-type: application/json' \
+            -d "{\"url\":\"$URL/tg\",\"secret_token\":\"$SECRET\",\"allowed_updates\":[\"message\",\"callback_query\",\"my_chat_member\"]}"
+          echo
+          # the new secret takes a few seconds to reach the edge
+          for i in 1 2 3 4 5 6; do
+            sleep 5
+            if curl -fsS "$URL/setup" -H "X-Setup: $SECRET" -o setup.json; then cat setup.json; echo; break; fi
+          done
+          curl -fsS "$URL/tick" -H "X-Setup: $SECRET" | head -c 600; echo
+          {
+            echo "### ✅ Bot is live"
+            echo "Worker: $URL"
+            echo
+            echo "Open the bot in Telegram and send /start."
+          } >> "$GITHUB_STEP_SUMMARY"
