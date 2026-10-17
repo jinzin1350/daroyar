@@ -1,3 +1,5 @@
+import java.io.File
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -7,7 +9,7 @@ plugins {
 // Without them only the debug (test) build can be produced.
 val keystorePath: String? = System.getenv("DAROYAR_KEYSTORE")?.takeIf { it.isNotBlank() }
 val keystorePass: String? = System.getenv("DAROYAR_KS_PASS")?.takeIf { it.isNotBlank() }
-val hasReleaseKey = keystorePath != null && keystorePass != null && java.io.File(keystorePath).exists()
+val hasReleaseKey = keystorePath != null && keystorePass != null && File(keystorePath).exists()
 val repoSlug: String = System.getenv("GITHUB_REPOSITORY") ?: "jinzin1350/daroyar"
 
 android {
