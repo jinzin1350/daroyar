@@ -38,7 +38,7 @@ class CareHomeActivity : AppCompatActivity() {
     }
 
     private fun render() {
-        val col = Ui.page(this, "دارویار — گزارش‌ها", back = false)
+        val col = Ui.page(this, "دارویار — خانواده", back = false)
         val devices = Care.devices(this)
 
         if (!Diag.notifOk(this) || !Diag.batteryOk(this) || !Diag.exactOk(this)) {
@@ -55,7 +55,8 @@ class CareHomeActivity : AppCompatActivity() {
                 Ui.text(
                     this,
                     "هنوز گوشی مامان یا بابا را اضافه نکرده‌اید.\n" +
-                        "روی گوشی آن‌ها: «اتصال به فرزند» ← «فرستادن کد». بعد اینجا کد را وارد کنید.",
+                        "روی گوشی آن‌ها برنامه را نصب کنید و «گوشی مامان یا بابا» را بزنید؛ کد اتصال روی صفحه می‌آید. " +
+                        "آن کد را با «فرستادن کد» برای خودتان بفرستید و اینجا وارد کنید.",
                     18f, Ui.MUTED, top = 18
                 )
             )
@@ -73,14 +74,17 @@ class CareHomeActivity : AppCompatActivity() {
                     Ui.text(this, "آخرین خبر: " + Fa.ago(r.sentAt), 16f, if (silent) Ui.AMBER else Ui.MUTED, top = 2)
                 )
                 card.addView(Ui.text(this, "امروز:  " + r.todayLine(), 19f, top = 6))
-                val probs = r.diagProblems()
-                if (probs.isNotEmpty()) {
+                if (r.diagProblems().isNotEmpty()) {
                     card.addView(Ui.text(this, "🛠 تنظیمات گوشی ناقص است", 15f, Ui.RED, bold = true))
                 }
             }
-            card.setOnClickListener {
-                startActivity(Intent(this, CareDeviceActivity::class.java).putExtra("topic", d.topicId))
+            if (Care.meds(this, d).isEmpty()) {
+                card.addView(Ui.text(this, "💊 هنوز دارویی ثبت نشده — اینجا را بزنید", 16f, Ui.PRIMARY, bold = true))
             }
+            if (Care.pendingDelivery(this, d)) {
+                card.addView(Ui.text(this, "⏳ تغییرات داروها هنوز به گوشی نرسیده", 15f, Ui.AMBER))
+            }
+            card.setOnClickListener { openDevice(d) }
             col.addView(card)
         }
 
@@ -108,6 +112,10 @@ class CareHomeActivity : AppCompatActivity() {
         }
     }
 
+    private fun openDevice(d: Device) {
+        startActivity(Intent(this, CareDeviceActivity::class.java).putExtra("topic", d.topicId))
+    }
+
     private fun addDialog() {
         val name = Ui.input(this, "اسم (مثلاً: مامان)", "")
         val code = Ui.input(this, "کد اتصال", "", ltr = true)
@@ -126,9 +134,10 @@ class CareHomeActivity : AppCompatActivity() {
                 if (c == null) {
                     Ui.toast(this, "کد درست نیست. باید ۲۰ حرف و عدد باشد.")
                 } else {
-                    Care.addDevice(this, c, name.text.toString())
-                    Ui.toast(this, "اضافه شد. در حال دریافت گزارش…")
+                    val d = Care.addDevice(this, c, name.text.toString())
+                    Ui.toast(this, "اضافه شد ✅ حالا داروها را وارد کنید")
                     refresh()
+                    openDevice(d)
                 }
             }
             .setNegativeButton("انصراف", null)
@@ -136,19 +145,72 @@ class CareHomeActivity : AppCompatActivity() {
     }
 }
 
-/** Details of one parent phone: settings problems, medicines, recent doses. */
+/** One parent phone: its medicines (editable here), recent doses, and settings problems. */
 class CareDeviceActivity : AppCompatActivity() {
+    private var syncing = false
+
     override fun onResume() {
         super.onResume()
-        val d = Care.device(this, intent.getStringExtra("topic") ?: "")
+        render()
+    }
+
+    private fun device(): Device? = Care.device(this, intent.getStringExtra("topic") ?: "")
+
+    private fun render() {
+        val d = device()
         if (d == null) {
             finish()
             return
         }
         val col = Ui.page(this, d.label)
         val r = Care.report(this, d)
+
+        // ---- medicines (managed from here)
+        col.addView(Ui.text(this, "💊 داروهای ${d.label}", 21f, bold = true, top = 14))
+        val meds = Care.meds(this, d)
+        if (meds.isEmpty()) {
+            col.addView(
+                Ui.text(this, "هنوز دارویی ثبت نشده. داروها را شما از همین‌جا اضافه کنید؛ روی گوشی آن‌ها خودکار تنظیم می‌شود.", 16f, Ui.MUTED)
+            )
+        }
+        for (m in meds) {
+            val card = Ui.card(this)
+            card.addView(Ui.text(this, m.label(), 19f, bold = true, top = 2))
+            card.addView(Ui.text(this, "⏰ " + m.times.joinToString("، ") { Fa.time(it) }, 18f, top = 4))
+            card.addView(Ui.button(this, "✏️ ویرایش", Ui.GRAY_BTN, Ui.TEXT, sp = 16f, height = 46) {
+                startActivity(
+                    Intent(this, MedEditActivity::class.java).putExtra("topic", d.topicId).putExtra("id", m.id)
+                )
+            })
+            col.addView(card)
+        }
+        col.addView(Ui.button(this, "➕ افزودن دارو", Ui.GREEN) {
+            startActivity(Intent(this, MedEditActivity::class.java).putExtra("topic", d.topicId))
+        })
+        val delivery = when {
+            Care.localConfig(this, d) == null -> null
+            Care.pendingDelivery(this, d) ->
+                "⏳ تغییرات هنوز به گوشی ${d.label} نرسیده. وقتی گوشی‌شان به اینترنت وصل باشد، معمولاً تا ۱۵ دقیقه می‌رسد."
+            else -> "✅ آخرین تغییرات روی گوشی ${d.label} اعمال شده است."
+        }
+        if (delivery != null) {
+            col.addView(Ui.text(this, delivery, 15f, if (delivery.startsWith("⏳")) Ui.AMBER else Ui.GREEN, top = 8))
+        }
+        col.addView(Ui.button(this, if (syncing) "در حال ارسال و دریافت…" else "🔄 ارسال و دریافت الان", Ui.PRIMARY, sp = 18f, height = 54) {
+            if (!syncing) {
+                syncing = true
+                render()
+                Ui.background(this, { Care.sync(this) }) {
+                    syncing = false
+                    render()
+                }
+            }
+        })
+
+        // ---- status
+        col.addView(Ui.text(this, "وضعیت", 21f, bold = true, top = 22))
         if (r == null) {
-            col.addView(Ui.text(this, "هنوز گزارشی از این گوشی نرسیده.", 18f, Ui.MUTED, top = 16))
+            col.addView(Ui.text(this, "هنوز گزارشی از این گوشی نرسیده.", 17f, Ui.MUTED))
         } else {
             val info = Ui.card(this)
             info.addView(Ui.text(this, "آخرین خبر: " + Fa.ago(r.sentAt), 17f, top = 2))
@@ -161,32 +223,29 @@ class CareDeviceActivity : AppCompatActivity() {
             }
             col.addView(info)
 
-            col.addView(Ui.text(this, "داروها", 20f, bold = true, top = 18))
-            if (r.meds.isEmpty()) col.addView(Ui.text(this, "دارویی ثبت نشده", 16f, Ui.MUTED))
-            for (m in r.meds) {
-                col.addView(
-                    Ui.text(this, "💊 " + m.label() + "\n     " + m.times.joinToString("، ") { Fa.time(it) }, 17f, top = 6)
-                )
-            }
-
-            col.addView(Ui.text(this, "روزهای اخیر", 20f, bold = true, top = 20))
+            col.addView(Ui.text(this, "روزهای اخیر", 21f, bold = true, top = 20))
             val today = r.today()
             for (k in 0..3) {
                 val date = Clock.addDays(today, -k)
                 val dayCard = Ui.card(this)
-                dayCard.addView(Ui.text(this, if (k == 0) "امروز — " + Fa.day(date, r.zone) else Fa.day(date, r.zone), 17f, Ui.PRIMARY, bold = true, top = 2))
+                dayCard.addView(
+                    Ui.text(this, if (k == 0) "امروز — " + Fa.day(date, r.zone) else Fa.day(date, r.zone), 17f, Ui.PRIMARY, bold = true, top = 2)
+                )
                 var any = false
                 for (t in r.times()) {
                     val evs = r.events.filter { it.date == date && it.time == t }
                     val sym = r.symbol(date, t)
                     if (sym.isEmpty() && evs.isEmpty()) continue
                     any = true
-                    val names = if (evs.isNotEmpty()) evs.joinToString("، ") { it.medName }
-                    else r.medsAt(date, t).joinToString("، ") { it.name }
-                    val extra = when {
-                        evs.isNotEmpty() && evs.all { it.status == TAKEN } ->
-                            " (ساعت " + Fa.clock(evs.maxOf { it.takenAt }, r.zone) + ")"
-                        else -> ""
+                    val names = if (evs.isNotEmpty()) {
+                        evs.joinToString("، ") { it.medName }
+                    } else {
+                        r.medsAt(date, t).joinToString("، ") { it.name }
+                    }
+                    val extra = if (evs.isNotEmpty() && evs.all { it.status == TAKEN }) {
+                        " (ساعت " + Fa.clock(evs.maxOf { it.takenAt }, r.zone) + ")"
+                    } else {
+                        ""
                     }
                     dayCard.addView(Ui.text(this, "$sym  ${Fa.time(t)} — $names$extra", 16f, top = 4))
                 }
@@ -194,12 +253,23 @@ class CareDeviceActivity : AppCompatActivity() {
                 col.addView(dayCard)
             }
             col.addView(
-                Ui.text(this, "✅ خورده شد   ❌ تأیید نشد   ⏳ منتظر   ❓ خبری نرسیده   ▫️ هنوز وقتش نشده", 13f, Ui.MUTED, top = 12)
+                Ui.text(
+                    this,
+                    "✅ خوردم   ❌ نخوردم   ⚠️ بی‌جواب   ⏳ منتظر جواب   ❓ خبری نرسیده   ▫️ هنوز وقتش نشده",
+                    13f, Ui.MUTED, top = 12
+                )
             )
         }
 
-        col.addView(Ui.button(this, "🗑 حذف این گوشی", Ui.GRAY_BTN, Ui.RED, sp = 17f, height = 52) {
-            Ui.confirm(this, "حذف", "«${d.label}» از فهرست حذف شود؟", "حذف") {
+        // ---- sharing and removal
+        col.addView(Ui.text(this, "", 6f))
+        col.addView(Ui.button(this, "📤 فرستادن کد برای خواهر/برادر", Ui.GRAY_BTN, Ui.TEXT, sp = 17f, height = 52) {
+            val msg = "کد اتصال دارویار (${d.label}):\n${Crypto.pretty(d.code)}"
+            val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, msg)
+            startActivity(Intent.createChooser(send, "فرستادن کد با…"))
+        })
+        col.addView(Ui.button(this, "🗑 حذف این گوشی از فهرست", Ui.GRAY_BTN, Ui.RED, sp = 17f, height = 52) {
+            Ui.confirm(this, "حذف", "«${d.label}» از فهرست حذف شود؟ (روی گوشی آن‌ها چیزی پاک نمی‌شود)", "حذف") {
                 Care.removeDevice(this, d)
                 finish()
             }

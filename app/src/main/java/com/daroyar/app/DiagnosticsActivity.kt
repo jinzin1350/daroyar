@@ -40,12 +40,12 @@ class DiagnosticsActivity : AppCompatActivity() {
 
         row(col, "اجازهٔ اعلان", Diag.notifOk(this), "بدون این، هیچ زنگ و هشداری نمی‌آید.") { fixNotif() }
         if (parent) {
-            row(col, "صدای زنگ دارو", Diag.alarmChannelOk(this), "اعلان «زنگ دارو» باید روشن و با اولویت بالا باشد.") {
+            row(col, "اعلان «زنگ دارو»", Diag.ringChannelOk(this), "این اعلان باید روشن و با اولویت بالا (پاپ‌آپ) باشد.") {
                 if (Build.VERSION.SDK_INT >= 26) {
                     open(
                         Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
                             .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
-                            .putExtra(Settings.EXTRA_CHANNEL_ID, Notify.CH_ALARM)
+                            .putExtra(Settings.EXTRA_CHANNEL_ID, Notify.CH_RING)
                     )
                 }
             }
@@ -56,6 +56,9 @@ class DiagnosticsActivity : AppCompatActivity() {
         if (parent) {
             row(col, "نمایش تمام‌صفحه", Diag.fullScreenOk(this), "تا صفحهٔ دارو روی صفحهٔ قفل هم بیاید.") {
                 if (Build.VERSION.SDK_INT >= 34) open(Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, pkgUri))
+            }
+            row(col, "نمایش روی برنامه‌های دیگر", Diag.overlayOk(this), "تا صفحهٔ دارو حتی وقتی گوشی دستشان است خودش باز شود.") {
+                if (Build.VERSION.SDK_INT >= 23) open(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, pkgUri))
             }
         }
         row(col, "بهینه‌سازی باتری خاموش", Diag.batteryOk(this), "وگرنه گوشی برنامه را می‌خواباند و زنگ نمی‌خورد.") {
@@ -78,6 +81,20 @@ class DiagnosticsActivity : AppCompatActivity() {
         } else {
             col.addView(Ui.button(this, "🔔 هشدار آزمایشی", Ui.PRIMARY) {
                 Notify.care(this, "test" + Clock.now(), "هشدار آزمایشی", "اگر این را می‌بینید، هشدارها درست کار می‌کنند ✅")
+            })
+        }
+
+        if (parent) {
+            col.addView(Ui.text(this, "پیشرفته", 20f, bold = true, top = 24))
+            col.addView(
+                Ui.text(
+                    this,
+                    "داروها را معمولاً فرزند از گوشی خودش وارد می‌کند. فقط اگر اینترنت نیست، می‌شود اینجا روی همین گوشی وارد کرد.",
+                    15f, Ui.MUTED
+                )
+            )
+            col.addView(Ui.button(this, "💊 ویرایش داروها روی همین گوشی", Ui.GRAY_BTN, Ui.TEXT, sp = 17f, height = 52) {
+                startActivity(Intent(this, MedListActivity::class.java))
             })
         }
 

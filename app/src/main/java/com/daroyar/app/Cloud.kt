@@ -17,9 +17,9 @@ import javax.net.ssl.SSLSocketFactory
 /**
  * Link between the two phones through free public MQTT brokers.
  *
- * The parent phone publishes its encrypted state as a *retained* message to
- * EVERY broker it can reach; the caregiver phone reads from every broker it
- * can reach and keeps the newest. So the two phones meet even if Iran blocks
+ * Both phones connect to EVERY broker they can reach. The parent phone
+ * publishes its encrypted state there and reads the medicine list (config)
+ * the caregivers published; each side keeps the newest copy it finds. So the two phones meet even if Iran blocks
  * one broker and not another. For each broker we try TLS first, then
  * WebSocket-TLS (port 8084/8884 looks like web traffic), then plain ones;
  * plain is fine because the payload itself is encrypted.
@@ -55,6 +55,7 @@ object Cloud {
     )
 
     fun stateTopic(topicId: String) = "daroyar/v1/$topicId/state"
+    fun configTopic(topicId: String) = "daroyar/v1/$topicId/config"
 
     private val rnd = SecureRandom()
 
@@ -63,6 +64,8 @@ object Cloud {
         repeat(10) { sb.append("0123456789abcdef"[rnd.nextInt(16)]) }
         return sb.toString()
     }
+
+    class Conn(val host: Host, val client: MqttClient)
 
     private fun connect(host: Host, log: MutableList<String>): MqttClient? {
         for (uri in host.uris) {
@@ -102,58 +105,66 @@ object Cloud {
         }
     }
 
-    /** Publishes [payload] as retained to every reachable broker. Returns how many accepted it. */
-    fun publishRetained(topic: String, payload: ByteArray, log: MutableList<String>): Int {
-        var ok = 0
-        for (h in HOSTS) {
-            val c = connect(h, log) ?: continue
-            try {
-                c.publish(topic, payload, 1, true)
-                ok++
-            } catch (t: Throwable) {
-                log.add("${h.name}: ارسال ✗ ${t.javaClass.simpleName}")
-            } finally {
-                close(c)
-            }
-        }
-        return ok
-    }
+    /** Opens a connection to every broker that is reachable right now. */
+    fun connectAll(log: MutableList<String>): List<Conn> =
+        HOSTS.mapNotNull { h -> connect(h, log)?.let { Conn(h, it) } }
 
-    class FetchResult(val messages: Map<String, List<ByteArray>>, val hostsReached: Int)
+    fun closeAll(conns: List<Conn>) = conns.forEach { close(it.client) }
 
-    /** Reads the retained messages of [topics] from every reachable broker. */
-    fun fetchRetained(topics: List<String>, log: MutableList<String>): FetchResult {
-        val out = HashMap<String, MutableList<ByteArray>>()
-        var reached = 0
-        if (topics.isEmpty()) return FetchResult(out, 0)
-        for (h in HOSTS) {
-            val c = connect(h, log) ?: continue
-            reached++
+    /**
+     * Retained message of each topic on each connection (result list is in
+     * the same order as [conns]). Waits at most [waitMs] in total.
+     */
+    fun readRetainedAll(conns: List<Conn>, topics: List<String>, waitMs: Long): List<Map<String, ByteArray>> {
+        val maps = conns.map { HashMap<String, ByteArray>() }
+        if (conns.isEmpty() || topics.isEmpty()) return maps
+        val latch = CountDownLatch(conns.size * topics.size)
+        conns.forEachIndexed { i, conn ->
+            val map = maps[i]
             try {
-                val latch = CountDownLatch(topics.size)
-                c.setCallback(object : MqttCallback {
+                conn.client.setCallback(object : MqttCallback {
                     override fun connectionLost(cause: Throwable?) {}
 
                     override fun messageArrived(topic: String?, message: MqttMessage?) {
                         if (topic == null || message == null) return
-                        synchronized(out) {
-                            out.getOrPut(topic) { mutableListOf() }.add(message.payload)
+                        var first = false
+                        synchronized(map) {
+                            if (!map.containsKey(topic)) {
+                                map[topic] = message.payload
+                                first = true
+                            }
                         }
-                        latch.countDown()
+                        if (first) latch.countDown()
                     }
 
                     override fun deliveryComplete(token: IMqttDeliveryToken?) {}
                 })
-                c.subscribe(topics.toTypedArray(), IntArray(topics.size) { 1 })
-                // Retained messages arrive right after subscribing.
-                latch.await(5, TimeUnit.SECONDS)
-            } catch (t: Throwable) {
-                log.add("${h.name}: دریافت ✗ ${t.javaClass.simpleName}")
-            } finally {
-                close(c)
+                conn.client.subscribe(topics.toTypedArray(), IntArray(topics.size) { 1 })
+            } catch (_: Throwable) {
             }
         }
-        return FetchResult(out, reached)
+        try {
+            latch.await(waitMs, TimeUnit.MILLISECONDS)
+        } catch (_: InterruptedException) {
+        }
+        for (conn in conns) {
+            try {
+                conn.client.unsubscribe(topics.toTypedArray())
+            } catch (_: Throwable) {
+            }
+        }
+        return maps.map { m -> synchronized(m) { HashMap(m) } }
+    }
+
+    /** Publishes as a retained message (newcomers get it right away). */
+    fun publish(conn: Conn, topic: String, payload: ByteArray, log: MutableList<String>): Boolean {
+        return try {
+            conn.client.publish(topic, payload, 1, true)
+            true
+        } catch (t: Throwable) {
+            log.add("${conn.host.name}: ارسال ✗ ${t.javaClass.simpleName}")
+            false
+        }
     }
 }
 

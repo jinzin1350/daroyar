@@ -127,6 +127,19 @@ object Ui {
         setOnClickListener { onClick() }
     }
 
+    /** Buttons side by side, equal width. */
+    fun row(c: Context, vararg buttons: Button): LinearLayout = LinearLayout(c).apply {
+        orientation = LinearLayout.HORIZONTAL
+        layoutDirection = View.LAYOUT_DIRECTION_RTL
+        layoutParams = lp(c, 10)
+        buttons.forEachIndexed { i, b ->
+            b.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                if (i > 0) marginStart = dp(c, 10)
+            }
+            addView(b)
+        }
+    }
+
     fun card(c: Context, border: Int = LINE): LinearLayout = LinearLayout(c).apply {
         orientation = LinearLayout.VERTICAL
         layoutDirection = View.LAYOUT_DIRECTION_RTL

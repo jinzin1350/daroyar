@@ -42,11 +42,11 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : Worker(appCont
         return try {
             when (Prefs.role(c)) {
                 Prefs.PARENT -> {
-                    Parent.selfHeal(c, fromBoot = false)
+                    Parent.selfHeal(c, ringPending = false)
                     if (!Net.online(c)) {
                         if (once) Result.retry() else Result.success()
                     } else {
-                        val ok = Parent.publish(c)
+                        val ok = Parent.sync(c)
                         if (ok || !once) Result.success() else Result.retry()
                     }
                 }

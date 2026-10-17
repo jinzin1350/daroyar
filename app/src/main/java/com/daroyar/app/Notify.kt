@@ -15,11 +15,32 @@ import android.provider.Settings
 import androidx.core.app.NotificationCompat
 
 object Notify {
+    /** Silent, high-priority channel of the ringing service (the service makes the sound). */
+    const val CH_RING = "dose_ring_v2"
+    /** Fallback when the service can't start: the channel itself makes the sound. */
     const val CH_ALARM = "dose_alarm_v1"
     const val CH_INFO = "dose_info_v1"
     const val CH_CARE = "care_alert_v1"
 
     private fun nm(c: Context) = c.getSystemService(NotificationManager::class.java)
+
+    /** Sounds to try in order: the phone's alarm sound, then ringtone, then notification sound. */
+    fun soundCandidates(c: Context): List<Uri> {
+        val out = mutableListOf<Uri>()
+        fun actual(type: Int) {
+            try {
+                val u: Uri? = RingtoneManager.getActualDefaultRingtoneUri(c, type)
+                if (u != null) out.add(u)
+            } catch (_: Throwable) {
+            }
+        }
+        actual(RingtoneManager.TYPE_ALARM)
+        out.add(Settings.System.DEFAULT_ALARM_ALERT_URI)
+        actual(RingtoneManager.TYPE_RINGTONE)
+        out.add(Settings.System.DEFAULT_RINGTONE_URI)
+        out.add(Settings.System.DEFAULT_NOTIFICATION_URI)
+        return out.distinct()
+    }
 
     private fun alarmSound(): Uri =
         RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
@@ -28,8 +49,15 @@ object Notify {
 
     fun createChannels(c: Context) {
         if (Build.VERSION.SDK_INT < 26) return
-        val alarm = NotificationChannel(CH_ALARM, "زنگ دارو", NotificationManager.IMPORTANCE_HIGH).apply {
-            description = "زنگ وقت خوردن دارو"
+        val ring = NotificationChannel(CH_RING, "زنگ دارو", NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "صفحهٔ وقت دارو (صدا را خود برنامه پخش می‌کند)"
+            setSound(null, null)
+            enableVibration(false)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            setBypassDnd(true)
+        }
+        val alarm = NotificationChannel(CH_ALARM, "زنگ دارو (پشتیبان)", NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "وقتی سرویس زنگ اجرا نشود"
             setSound(
                 alarmSound(),
                 AudioAttributes.Builder()
@@ -42,14 +70,14 @@ object Notify {
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             setBypassDnd(true)
         }
-        val info = NotificationChannel(CH_INFO, "یادآوری‌ها", NotificationManager.IMPORTANCE_DEFAULT).apply {
-            description = "یادآوری داروهایی که تأیید نشده‌اند"
+        val info = NotificationChannel(CH_INFO, "یادآوری‌ها", NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "داروهایی که هنوز تأیید نشده‌اند"
         }
         val care = NotificationChannel(CH_CARE, "هشدار داروی والدین", NotificationManager.IMPORTANCE_HIGH).apply {
             description = "وقتی داروی پدر یا مادر تأیید نشود"
             enableVibration(true)
         }
-        nm(c).createNotificationChannels(listOf(alarm, info, care))
+        nm(c).createNotificationChannels(listOf(ring, alarm, info, care))
     }
 
     fun slotId(date: String, time: String): Int = 100_000 + (("$date$time".hashCode()) and 0xffff)
@@ -64,32 +92,57 @@ object Notify {
         )
     }
 
-    /** The ringing reminder: full screen over the lock screen + loud alarm sound. */
-    fun showDoseAlarm(c: Context, date: String, time: String, lines: List<String>) {
+    private fun dosePage(c: Context, date: String, time: String): PendingIntent {
         val full = Intent(c, AlarmActivity::class.java)
             .putExtra("date", date)
             .putExtra("time", time)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        val fullPi = PendingIntent.getActivity(
+        return PendingIntent.getActivity(
             c, slotId(date, time), full,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val title = if (date == "test") "آلارم آزمایشی ⏰" else "وقت داروست ⏰  " + Fa.time(time)
-        val text = lines.joinToString("\n")
-        val b = NotificationCompat.Builder(c, CH_ALARM)
+    }
+
+    private fun title(date: String, time: String) =
+        if (date == "test") "آلارم آزمایشی ⏰" else "وقت داروست ⏰  " + Fa.time(time)
+
+    /** Notification of the ringing service; opens the dose page over the lock screen. */
+    fun ringNotification(c: Context, date: String, time: String, lines: List<String>): Notification {
+        val page = dosePage(c, date, time)
+        return NotificationCompat.Builder(c, CH_RING)
             .setSmallIcon(R.drawable.ic_stat_pill)
-            .setContentTitle(title)
+            .setContentTitle(title(date, time))
             .setContentText(lines.joinToString("، "))
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(lines.joinToString("\n")))
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setFullScreenIntent(fullPi, true)
-            .setContentIntent(fullPi)
+            .setFullScreenIntent(page, true)
+            .setContentIntent(page)
             .setOngoing(true)
             .setAutoCancel(false)
             .addAction(0, "✅ خوردم", slotBroadcast(c, "taken", date, time))
-            .addAction(0, "⏰ ۱۰ دقیقه دیگه", slotBroadcast(c, "later", date, time))
+            .addAction(0, "❌ نخوردم", slotBroadcast(c, "skip", date, time))
+            .build()
+    }
+
+    /** Fallback ringing without the service: the channel plays the alarm sound. */
+    fun showDoseAlarm(c: Context, date: String, time: String, lines: List<String>) {
+        val page = dosePage(c, date, time)
+        val b = NotificationCompat.Builder(c, CH_ALARM)
+            .setSmallIcon(R.drawable.ic_stat_pill)
+            .setContentTitle(title(date, time))
+            .setContentText(lines.joinToString("، "))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(lines.joinToString("\n")))
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setFullScreenIntent(page, true)
+            .setContentIntent(page)
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .addAction(0, "✅ خوردم", slotBroadcast(c, "taken", date, time))
+            .addAction(0, "❌ نخوردم", slotBroadcast(c, "skip", date, time))
         if (Build.VERSION.SDK_INT < 26) {
             @Suppress("DEPRECATION")
             b.setSound(alarmSound(), AudioManager.STREAM_ALARM)
@@ -100,24 +153,17 @@ object Notify {
         post(c, slotId(date, time), n)
     }
 
-    /** Quiet follow-up after the grace period: "not confirmed — tap if you took it". */
-    fun showLateReminder(c: Context, date: String, time: String, lines: List<String>) {
-        val open = PendingIntent.getActivity(
-            c, slotId(date, time),
-            Intent(c, ParentHomeActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+    /** Quiet reminder that stays in the shade until answered. */
+    fun showReminder(c: Context, date: String, time: String, lines: List<String>, heading: String) {
         val n = NotificationCompat.Builder(c, CH_INFO)
             .setSmallIcon(R.drawable.ic_stat_pill)
-            .setContentTitle("داروی ساعت ${Fa.time(time)} تأیید نشد")
-            .setContentText("اگر خوردید، «خوردم» را بزنید")
-            .setStyle(
-                NotificationCompat.BigTextStyle()
-                    .bigText(lines.joinToString("\n") + "\nاگر خوردید، «خوردم» را بزنید.")
-            )
-            .setContentIntent(open)
+            .setContentTitle(heading)
+            .setContentText(lines.joinToString("، "))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(lines.joinToString("\n")))
+            .setContentIntent(dosePage(c, date, time))
             .setAutoCancel(true)
             .addAction(0, "✅ خوردم", slotBroadcast(c, "taken", date, time))
+            .addAction(0, "❌ نخوردم", slotBroadcast(c, "skip", date, time))
             .build()
         post(c, slotId(date, time), n)
     }

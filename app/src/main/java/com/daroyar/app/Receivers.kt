@@ -30,11 +30,11 @@ class AlarmReceiver : BroadcastReceiver() {
         try {
             when (kind) {
                 "due" -> if (date != null && time != null) Parent.onDue(c, date, time) else Parent.scheduleNext(c)
-                "rering1", "rering2", "snooze" -> if (date != null && time != null) Parent.onRering(c, date, time)
+                "rering1", "rering2", "ringnow" -> if (date != null && time != null) Parent.onRering(c, date, time)
                 "missed" -> if (date != null && time != null) Parent.markMissedIfPending(c, date, time, notify = true)
                 "taken" -> if (date != null && time != null) Parent.markTaken(c, date, time)
-                "later" -> if (date != null && time != null) Parent.snooze(c, date, time)
-                "test" -> Notify.showDoseAlarm(c, "test", "test", listOf("این یک آلارم آزمایشی است", "اگر صدا و صفحه را می‌بینید، همه‌چیز درست است ✅"))
+                "skip" -> if (date != null && time != null) Parent.markSkipped(c, date, time)
+                "test" -> Parent.ring(c, "test", "test")
                 "care" -> Sync.now(c)
             }
         } catch (t: Throwable) {
@@ -52,7 +52,7 @@ class BootReceiver : BroadcastReceiver() {
             when (Prefs.role(c)) {
                 Prefs.PARENT -> {
                     Sync.schedulePeriodic(c)
-                    Parent.selfHeal(c, fromBoot = boot)
+                    Parent.selfHeal(c, ringPending = boot)
                     Sync.now(c)
                 }
                 Prefs.CARE -> {

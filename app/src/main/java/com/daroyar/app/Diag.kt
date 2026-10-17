@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.PowerManager
+import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import org.json.JSONObject
@@ -24,12 +25,16 @@ object Diag {
         return NotificationManagerCompat.from(c).areNotificationsEnabled()
     }
 
-    fun alarmChannelOk(c: Context): Boolean {
+    /** The ringing channel must stay "high" so the dose page can pop up. */
+    fun ringChannelOk(c: Context): Boolean {
         if (Build.VERSION.SDK_INT < 26) return true
         val ch = c.getSystemService(NotificationManager::class.java)
-            .getNotificationChannel(Notify.CH_ALARM) ?: return true
+            .getNotificationChannel(Notify.CH_RING) ?: return true
         return ch.importance >= NotificationManager.IMPORTANCE_HIGH
     }
+
+    /** "Display over other apps": lets the dose page open by itself while the phone is in use. */
+    fun overlayOk(c: Context): Boolean = Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(c)
 
     fun exactOk(c: Context): Boolean {
         if (Build.VERSION.SDK_INT < 31) return true
@@ -54,7 +59,7 @@ object Diag {
     }
 
     fun allOkParent(c: Context): Boolean =
-        notifOk(c) && alarmChannelOk(c) && exactOk(c) && fullScreenOk(c) && batteryOk(c) && timeZoneOk()
+        notifOk(c) && ringChannelOk(c) && exactOk(c) && fullScreenOk(c) && overlayOk(c) && batteryOk(c) && timeZoneOk()
 }
 
 /** Looks up the newest published release on GitHub. */

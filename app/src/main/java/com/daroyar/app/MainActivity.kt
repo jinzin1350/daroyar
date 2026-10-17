@@ -2,7 +2,6 @@ package com.daroyar.app
 
 import android.content.Intent
 import android.os.Bundle
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 
 /** Entry point: picks the role on first launch, then routes. */
@@ -28,14 +27,14 @@ class MainActivity : AppCompatActivity() {
         col.addView(
             Ui.text(
                 this,
-                "این برنامه سر وقت دارو زنگ می‌زند. اگر دارو تأیید نشود، به گوشی فرزند خبر می‌دهد.",
+                "فرزندان داروها را از گوشی خودشان وارد می‌کنند. گوشی مامان و بابا سر وقت زنگ می‌زند و آن‌ها فقط «خوردم» یا «نخوردم» را می‌زنند.",
                 18f, Ui.MUTED
             )
         )
         col.addView(Ui.text(this, "این گوشی مال کیست؟", 22f, bold = true, top = 28))
         col.addView(
             Ui.button(this, "👵👴  گوشی مامان یا بابا\n(کسی که دارو می‌خورد)", Ui.GREEN, height = 96) {
-                askName()
+                becomeParent()
             }
         )
         col.addView(
@@ -47,27 +46,18 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private fun askName() {
-        val input = Ui.input(this, "مثلاً: مامان", "مامان")
-        AlertDialog.Builder(this)
-            .setTitle("اسم صاحب این گوشی")
-            .setMessage("این اسم در گزارش‌های فرزند نشان داده می‌شود.")
-            .setView(Ui.box(this, input))
-            .setPositiveButton("ادامه") { _, _ ->
-                Prefs.setDeviceName(this, input.text.toString())
-                Prefs.setRole(this, Prefs.PARENT)
-                Prefs.code(this)
-                Sync.schedulePeriodic(this)
-                Sync.now(this)
-                startActivities(
-                    arrayOf(
-                        Intent(this, ParentHomeActivity::class.java),
-                        Intent(this, DiagnosticsActivity::class.java).putExtra("firstRun", true)
-                    )
-                )
-                finish()
-            }
-            .setNegativeButton("انصراف", null)
-            .show()
+    /** Parents type nothing: the children name the phone and send the medicines. */
+    private fun becomeParent() {
+        Prefs.setRole(this, Prefs.PARENT)
+        Prefs.code(this)
+        Sync.schedulePeriodic(this)
+        Sync.now(this)
+        startActivities(
+            arrayOf(
+                Intent(this, ParentHomeActivity::class.java),
+                Intent(this, DiagnosticsActivity::class.java).putExtra("firstRun", true)
+            )
+        )
+        finish()
     }
 }

@@ -9,6 +9,11 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- The ringing service: plays the alarm sound itself, like an alarm-clock app -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- "Display over other apps": opens the dose page even while the phone is in use -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- Exact alarms: SCHEDULE_* on Android 12, USE_* (auto-granted) from Android 13 -->
     <uses-permission
         android:name="android.permission.SCHEDULE_EXACT_ALARM"
@@ -53,6 +58,11 @@
             android:taskAffinity=""
             android:theme="@style/Theme.Daroyar.Alarm"
             android:turnScreenOn="true" />
+
+        <service
+            android:name=".AlarmService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
 
         <receiver
             android:name=".AlarmReceiver"

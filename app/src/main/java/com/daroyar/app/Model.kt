@@ -4,8 +4,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 const val PENDING = "pending"
-const val TAKEN = "taken"
-const val MISSED = "missed"
+const val TAKEN = "taken"   // "خوردم"
+const val SKIPPED = "skipped" // "نخوردم" (answered no)
+const val MISSED = "missed"   // nobody answered within the grace period
 
 /**
  * A medicine taken every day at [times] ("HH:mm").
@@ -59,7 +60,8 @@ class DoseEvent(
     val due: Long,
     var status: String,
     var takenAt: Long = 0L,
-    var missedAt: Long = 0L
+    var missedAt: Long = 0L,
+    var skippedAt: Long = 0L
 ) {
     val slot: String get() = "${date}T$time"
 
@@ -75,6 +77,7 @@ class DoseEvent(
         .put("s", status)
         .put("ta", takenAt)
         .put("ma", missedAt)
+        .put("sa", skippedAt)
 
     companion object {
         fun fromJson(o: JSONObject) = DoseEvent(
@@ -86,7 +89,8 @@ class DoseEvent(
             due = o.optLong("due"),
             status = o.optString("s", PENDING),
             takenAt = o.optLong("ta"),
-            missedAt = o.optLong("ma")
+            missedAt = o.optLong("ma"),
+            skippedAt = o.optLong("sa")
         )
 
         fun listFrom(arr: JSONArray?): MutableList<DoseEvent> {

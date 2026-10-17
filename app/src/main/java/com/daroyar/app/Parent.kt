@@ -12,12 +12,13 @@ import java.util.TimeZone
 /**
  * Everything that happens on the parents' phone.
  *
- * Alarms are 100% local, so reminders work with no internet at all.
- * The internet is only used to tell the caregiver what happened.
+ * The medicine list comes from the children's phones (config). Alarms are
+ * 100% local, so reminders work with no internet at all; the internet is only
+ * used to receive the list and to report back what happened.
  */
 object Parent {
-    const val GRACE_MIN = 30      // after this, an unconfirmed dose becomes "missed"
-    const val RERING_MIN = 10     // ring again every 10 minutes until confirmed
+    const val GRACE_MIN = 30      // after this, an unanswered dose becomes "missed"
+    const val RERING_MIN = 10     // ring again every 10 minutes until answered
     private const val KEEP_DAYS = 7
     private const val MIN = 60_000L
 
@@ -42,12 +43,21 @@ object Parent {
 
     fun med(c: Context, id: Long): Med? = meds(c).firstOrNull { it.id == id }
 
+    /** Revision of the medicine list on this phone (newest wins everywhere). */
+    fun cfgRev(c: Context): Long = Prefs.sp(c).getLong("cfg_rev", 0L)
+
+    private fun bumpRev(c: Context) {
+        Prefs.sp(c).edit().putLong("cfg_rev", maxOf(Clock.now(), cfgRev(c) + 1)).commit()
+    }
+
+    /** Local editing (advanced; normally the children edit remotely). */
     fun upsertMed(c: Context, med: Med) {
         synchronized(lock) {
             val list = meds(c).toMutableList()
             val i = list.indexOfFirst { it.id == med.id }
             if (i >= 0) list[i] = med else list.add(med)
             saveMeds(c, list)
+            bumpRev(c)
         }
         scheduleNext(c)
         Sync.now(c)
@@ -56,9 +66,36 @@ object Parent {
     fun deleteMed(c: Context, id: Long) {
         synchronized(lock) {
             saveMeds(c, meds(c).filter { it.id != id })
+            bumpRev(c)
         }
         scheduleNext(c)
         Sync.now(c)
+    }
+
+    /** Applies a medicine list sent by a child's phone if it is newer. */
+    fun applyConfig(c: Context, o: JSONObject): Boolean {
+        val rev = o.optLong("rev", 0L)
+        if (rev <= cfgRev(c)) return false
+        val meds = Med.listFrom(o.optJSONArray("meds"))
+        synchronized(lock) {
+            saveMeds(c, meds)
+            Prefs.sp(c).edit().putLong("cfg_rev", rev).commit()
+            // Forget unanswered doses that are no longer on the schedule.
+            val evs = events(c)
+            val keep = evs.filter { e ->
+                e.status != PENDING || meds.any { it.active && it.id == e.medId && e.time in it.times }
+            }
+            if (keep.size != evs.size) saveEvents(c, keep)
+        }
+        val ringing = AlarmService.ringingSlot
+        if (ringing != null) {
+            val parts = ringing.split("|")
+            if (parts.size == 2 && slotEvents(c, parts[0], parts[1]).none { it.status == PENDING }) {
+                AlarmService.stop(c)
+            }
+        }
+        selfHeal(c, ringPending = true)
+        return true
     }
 
     /** Distinct dose times of all active medicines, sorted. */
@@ -107,9 +144,10 @@ object Parent {
         evs.filter { it.date == date && it.time == time }
     }
 
+    /** «خوردم» */
     fun markTaken(c: Context, date: String, time: String) {
         if (date == "test") {
-            Notify.cancelSlot(c, date, time)
+            endTest(c)
             return
         }
         synchronized(lock) {
@@ -122,12 +160,43 @@ object Parent {
             }
             saveEvents(c, evs)
         }
-        Notify.cancelSlot(c, date, time)
-        cancelSlotAlarms(c, date, time)
+        finishSlot(c, date, time)
         Sync.now(c)
     }
 
-    /** Called [GRACE_MIN] after the dose time. */
+    /** «نخوردم» — reported to the children right away. */
+    fun markSkipped(c: Context, date: String, time: String) {
+        if (date == "test") {
+            endTest(c)
+            return
+        }
+        synchronized(lock) {
+            ensureSlot(c, date, time)
+            val evs = events(c)
+            val now = Clock.now()
+            evs.filter { it.date == date && it.time == time && it.status != TAKEN && it.status != SKIPPED }
+                .forEach {
+                    it.status = SKIPPED
+                    it.skippedAt = now
+                }
+            saveEvents(c, evs)
+        }
+        finishSlot(c, date, time)
+        Sync.now(c)
+    }
+
+    private fun endTest(c: Context) {
+        AlarmService.stopFor(c, "test", "test")
+        Notify.cancelSlot(c, "test", "test")
+    }
+
+    private fun finishSlot(c: Context, date: String, time: String) {
+        AlarmService.stopFor(c, date, time)
+        Notify.cancelSlot(c, date, time)
+        cancelSlotAlarms(c, date, time)
+    }
+
+    /** Called [GRACE_MIN] after the dose time if nobody answered. */
     fun markMissedIfPending(c: Context, date: String, time: String, notify: Boolean) {
         val lines: List<String> = synchronized(lock) {
             val evs = events(c)
@@ -141,43 +210,48 @@ object Parent {
             saveEvents(c, evs)
             pend.map { it.label() }
         }
+        AlarmService.stopFor(c, date, time)
         cancelSlotAlarms(c, date, time)
-        if (notify) Notify.showLateReminder(c, date, time, lines) else Notify.cancelSlot(c, date, time)
+        if (notify) {
+            Notify.showReminder(c, date, time, lines, "داروی ساعت ${Fa.time(time)} تأیید نشد — خوردید؟")
+        } else {
+            Notify.cancelSlot(c, date, time)
+        }
         Sync.now(c)
     }
 
     // ------------------------------------------------------------ alarm flow
 
+    /** Starts ringing. Only call from an exact-alarm callback. */
+    fun ring(c: Context, date: String, time: String) {
+        val lines = if (date == "test") listOf("این یک آلارم آزمایشی است")
+        else slotEvents(c, date, time).filter { it.status == PENDING || it.status == MISSED }.map { it.label() }
+        if (lines.isEmpty()) return
+        if (!AlarmService.start(c, date, time)) Notify.showDoseAlarm(c, date, time, lines)
+    }
+
     /** The dose time has come. */
     fun onDue(c: Context, date: String, time: String) {
         val evs = ensureSlot(c, date, time)
-        val pend = evs.filter { it.status == PENDING }
-        if (pend.isNotEmpty()) {
-            Notify.showDoseAlarm(c, date, time, pend.map { it.label() })
+        if (evs.any { it.status == PENDING }) {
+            ring(c, date, time)
             val due = Clock.epoch(date, time)
             setAt(c, due + RERING_MIN * MIN, Notify.slotBroadcast(c, "rering1", date, time))
             setAt(c, due + 2 * RERING_MIN * MIN, Notify.slotBroadcast(c, "rering2", date, time))
             setAt(c, due + GRACE_MIN * MIN, Notify.slotBroadcast(c, "missed", date, time))
         }
         scheduleNext(c)
+        Sync.now(c)
     }
 
-    /** Ring again if still not confirmed. */
+    /** Ring again if still not answered. */
     fun onRering(c: Context, date: String, time: String) {
-        val pend = slotEvents(c, date, time).filter { it.status == PENDING }
-        if (pend.isNotEmpty()) Notify.showDoseAlarm(c, date, time, pend.map { it.label() })
-    }
-
-    /** "Remind me in 10 minutes". */
-    fun snooze(c: Context, date: String, time: String) {
-        Notify.cancelSlot(c, date, time)
-        if (date == "test") return
-        setAt(c, Clock.now() + RERING_MIN * MIN, Notify.slotBroadcast(c, "snooze", date, time))
+        if (slotEvents(c, date, time).any { it.status == PENDING }) ring(c, date, time)
     }
 
     private fun cancelSlotAlarms(c: Context, date: String, time: String) {
         val am = c.getSystemService(AlarmManager::class.java)
-        for (k in listOf("rering1", "rering2", "snooze", "missed")) {
+        for (k in listOf("rering1", "rering2", "ringnow", "missed")) {
             try {
                 am.cancel(Notify.slotBroadcast(c, k, date, time))
             } catch (_: Throwable) {
@@ -221,8 +295,8 @@ object Parent {
     }
 
     /**
-     * Alarm-clock alarms: exact, wake the phone from deep sleep and allow
-     * network right after — the most reliable kind Android offers.
+     * Alarm-clock alarms: exact, wake the phone from deep sleep, and allowed to
+     * start the ringing service — the most reliable kind Android offers.
      */
     fun setAt(c: Context, at: Long, pi: PendingIntent) {
         val am = c.getSystemService(AlarmManager::class.java)
@@ -247,9 +321,11 @@ object Parent {
 
     /**
      * Repairs anything that went wrong while the phone was off or the app was
-     * killed: creates missing events, marks overdue ones as missed, re-arms alarms.
+     * killed: creates missing events, marks overdue ones as missed, re-arms
+     * alarms. With [ringPending], a dose that is due right now rings (through
+     * an alarm a few seconds later, which Android lets start the ringing).
      */
-    fun selfHeal(c: Context, fromBoot: Boolean) {
+    fun selfHeal(c: Context, ringPending: Boolean) {
         val now = Clock.now()
         val today = Clock.today()
         val times = allTimes(c)
@@ -258,13 +334,14 @@ object Parent {
                 val due = Clock.epoch(date, t)
                 if (due > now || now - due > 26 * 60 * MIN) continue
                 val evs = ensureSlot(c, date, t)
-                val pend = evs.filter { it.status == PENDING }
-                if (pend.isEmpty()) continue
+                if (evs.none { it.status == PENDING }) continue
                 if (now >= due + GRACE_MIN * MIN) {
                     markMissedIfPending(c, date, t, notify = date == today)
                 } else {
                     setAt(c, due + GRACE_MIN * MIN, Notify.slotBroadcast(c, "missed", date, t))
-                    if (fromBoot) Notify.showDoseAlarm(c, date, t, pend.map { it.label() })
+                    if (ringPending && AlarmService.ringingSlot != "$date|$t") {
+                        setAt(c, now + 3_000, Notify.slotBroadcast(c, "ringnow", date, t))
+                    }
                 }
             }
         }
@@ -289,6 +366,7 @@ object Parent {
             .put("tzOff", tz.getOffset(now) / 60000)
             .put("grace", GRACE_MIN)
             .put("ver", BuildConfig.VERSION_NAME)
+            .put("cfgRev", cfgRev(c))
             .put("meds", meds)
             .put("events", evs)
             .put(
@@ -296,19 +374,52 @@ object Parent {
                     .put("notif", Diag.notifOk(c))
                     .put("exact", Diag.exactOk(c))
                     .put("fsi", Diag.fullScreenOk(c))
+                    .put("overlay", Diag.overlayOk(c))
                     .put("battery", Diag.batteryOk(c))
                     .put("tz", Diag.timeZoneOk())
             )
             .toString()
     }
 
-    /** Sends the encrypted state to the brokers. Blocking — call off the main thread. */
-    fun publish(c: Context): Boolean {
+    /**
+     * One round trip with the brokers: take the newest medicine list the
+     * children published, then report this phone's state. Blocking.
+     */
+    fun sync(c: Context): Boolean {
         val code = Prefs.code(c)
-        val payload = Crypto.encrypt(code, stateJson(c))
+        val tid = Crypto.topicId(code)
         val log = mutableListOf<String>()
-        val ok = Cloud.publishRetained(Cloud.stateTopic(Crypto.topicId(code)), payload, log) > 0
-        Prefs.recordSync(c, ok, log)
-        return ok
+        val conns = Cloud.connectAll(log)
+        if (conns.isEmpty()) {
+            Prefs.recordSync(c, false, log)
+            return false
+        }
+        try {
+            val cfgTopic = Cloud.configTopic(tid)
+            var best: JSONObject? = null
+            for (m in Cloud.readRetainedAll(conns, listOf(cfgTopic), 3_500)) {
+                val p = m[cfgTopic] ?: continue
+                val s = Crypto.decrypt(code, p) ?: continue
+                val o = try {
+                    JSONObject(s)
+                } catch (t: Throwable) {
+                    continue
+                }
+                val b = best
+                if (b == null || o.optLong("rev") > b.optLong("rev")) best = o
+            }
+            val newest = best
+            if (newest != null && applyConfig(c, newest)) log.add("✅ فهرست داروی تازه از فرزند رسید")
+
+            val payload = Crypto.encrypt(code, stateJson(c))
+            var ok = 0
+            for (conn in conns) {
+                if (Cloud.publish(conn, Cloud.stateTopic(tid), payload, log)) ok++
+            }
+            Prefs.recordSync(c, ok > 0, log)
+            return ok > 0
+        } finally {
+            Cloud.closeAll(conns)
+        }
     }
 }

@@ -35,23 +35,42 @@ class MedListActivity : AppCompatActivity() {
     }
 }
 
-/** Add or edit one medicine and its daily times. */
+/**
+ * Add or edit one medicine and its daily times.
+ * With extra "topic" it edits the list of a paired parent phone (caregiver
+ * side, sent over the internet); without it, the list on this phone.
+ */
 class MedEditActivity : AppCompatActivity() {
     private var editing: Med? = null
+    private var device: Device? = null
     private val times = mutableListOf<String>()
     private lateinit var timesBox: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        device = intent.getStringExtra("topic")?.let { Care.device(this, it) }
+        val dev = device
         val id = intent.getLongExtra("id", -1L)
-        editing = if (id >= 0) Parent.med(this, id) else null
+        editing = when {
+            id < 0 -> null
+            dev != null -> Care.meds(this, dev).firstOrNull { it.id == id }
+            else -> Parent.med(this, id)
+        }
         editing?.let { times.addAll(it.times) }
         if (savedInstanceState != null) {
             times.clear()
             times.addAll(savedInstanceState.getStringArrayList("times") ?: arrayListOf())
         }
 
-        val col = Ui.page(this, if (editing == null) "داروی جدید" else "ویرایش دارو")
+        val who = dev?.label
+        val col = Ui.page(
+            this,
+            when {
+                editing != null -> "ویرایش دارو"
+                who != null -> "داروی جدید برای $who"
+                else -> "داروی جدید"
+            }
+        )
         col.addView(Ui.text(this, "اسم دارو", 18f, bold = true, top = 14))
         val name = Ui.input(this, "مثلاً: قرص فشار", editing?.name ?: "")
         col.addView(name)
@@ -60,6 +79,12 @@ class MedEditActivity : AppCompatActivity() {
         col.addView(dose)
 
         col.addView(Ui.text(this, "ساعت‌های خوردن (هر روز)", 18f, bold = true, top = 18))
+        if (dev != null) {
+            val zoneNote = Care.report(this, dev)?.let { "ساعت الان آنجا: " + Fa.clock(Clock.now(), it.zone) } ?: ""
+            col.addView(
+                Ui.text(this, "به وقت گوشی $who (تهران)، نه وقت شما. $zoneNote", 15f, Ui.AMBER, top = 2)
+            )
+        }
         timesBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         col.addView(timesBox)
         col.addView(Ui.button(this, "⏰ افزودن ساعت", Ui.PRIMARY) { pickTime() })
@@ -87,14 +112,20 @@ class MedEditActivity : AppCompatActivity() {
                 since = if (timesChanged) Clock.now() else old!!.since,
                 active = true
             )
-            Parent.upsertMed(this, med)
-            Ui.toast(this, "ذخیره شد ✅")
+            if (dev != null) {
+                Care.upsertMed(this, dev, med)
+                Ui.toast(this, "ذخیره شد ✅ به‌زودی روی گوشی $who اعمال می‌شود")
+            } else {
+                Parent.upsertMed(this, med)
+                Ui.toast(this, "ذخیره شد ✅")
+            }
             finish()
         })
-        if (editing != null) {
+        val current = editing
+        if (current != null) {
             col.addView(Ui.button(this, "🗑 حذف این دارو", Ui.RED) {
-                Ui.confirm(this, "حذف دارو", "«${editing!!.name}» حذف شود؟", "حذف") {
-                    Parent.deleteMed(this, editing!!.id)
+                Ui.confirm(this, "حذف دارو", "«${current.name}» حذف شود؟", "حذف") {
+                    if (dev != null) Care.deleteMed(this, dev, current.id) else Parent.deleteMed(this, current.id)
                     finish()
                 }
             })

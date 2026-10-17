@@ -50,12 +50,13 @@ class AlarmActivity : AppCompatActivity() {
             listOf("این یک آلارم آزمایشی است")
         } else {
             val evs = Parent.slotEvents(this, date, time)
-            val pend = evs.filter { it.status != TAKEN }
-            if (evs.isNotEmpty() && pend.isEmpty()) {
+            val open = evs.filter { it.status == PENDING || it.status == MISSED }
+            if (open.isEmpty()) {
+                // already answered (e.g. from the notification)
                 finish()
                 return
             }
-            (if (pend.isNotEmpty()) pend else evs).map { it.label() }
+            open.map { it.label() }
         }
 
         val col = LinearLayout(this).apply {
@@ -75,22 +76,16 @@ class AlarmActivity : AppCompatActivity() {
         col.addView(card)
 
         col.addView(Ui.text(this, "", 10f))
-        col.addView(Ui.button(this, "✅ خوردم", Ui.GREEN, sp = 30f, height = 104) {
-            if (test) {
-                Notify.cancelSlot(this, date, time)
-                Ui.toast(this, "آلارم درست کار می‌کند ✅")
-            } else {
-                Parent.markTaken(this, date, time)
-                Ui.toast(this, "ثبت شد ✅ سلامت باشید")
-            }
+        col.addView(Ui.button(this, "✅ خوردم", Ui.GREEN, sp = 32f, height = 110) {
+            Parent.markTaken(this, date, time)
+            Ui.toast(this, if (test) "آلارم درست کار می‌کند ✅" else "ثبت شد ✅ سلامت باشید")
             finish()
         })
-        col.addView(
-            Ui.button(this, "⏰ ۱۰ دقیقه دیگه یادم بنداز", Color.parseColor("#2F6F63"), sp = 20f, height = 68) {
-                Parent.snooze(this, date, time)
-                finish()
-            }
-        )
+        col.addView(Ui.button(this, "❌ نخوردم", Color.parseColor("#8E2A2A"), sp = 26f, height = 84) {
+            Parent.markSkipped(this, date, time)
+            Ui.toast(this, if (test) "آلارم درست کار می‌کند ✅" else "ثبت شد")
+            finish()
+        })
 
         val scroll = ScrollView(this).apply {
             isFillViewport = true

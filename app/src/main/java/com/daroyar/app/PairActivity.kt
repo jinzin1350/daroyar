@@ -10,6 +10,14 @@ import androidx.appcompat.app.AppCompatActivity
 
 /** Parent side: shows the pairing code to send to the caregiver, and sync status. */
 class PairActivity : AppCompatActivity() {
+    companion object {
+        fun shareCode(a: android.app.Activity) {
+            val msg = "کد اتصال دارویار (${Prefs.deviceName(a)}):\n${Crypto.pretty(Prefs.code(a))}"
+            val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, msg)
+            a.startActivity(Intent.createChooser(send, "فرستادن کد با…"))
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         render()
@@ -35,24 +43,20 @@ class PairActivity : AppCompatActivity() {
         })
         col.addView(card)
 
-        col.addView(Ui.button(this, "📤 فرستادن کد برای فرزند", Ui.GREEN) {
-            val msg = "کد اتصال دارویار (${Prefs.deviceName(this)}):\n$code"
-            val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, msg)
-            startActivity(Intent.createChooser(send, "فرستادن کد با…"))
-        })
+        col.addView(Ui.button(this, "📤 فرستادن کد برای فرزند", Ui.GREEN) { shareCode(this) })
         col.addView(Ui.button(this, "📋 کپی کد", Ui.GRAY_BTN, Ui.TEXT) {
             val cm = getSystemService(ClipboardManager::class.java)
             cm?.setPrimaryClip(ClipData.newPlainText("daroyar", code))
             Ui.toast(this, "کپی شد")
         })
 
-        col.addView(Ui.text(this, "وضعیت ارسال گزارش", 20f, bold = true, top = 24))
+        col.addView(Ui.text(this, "ارتباط با فرزند", 20f, bold = true, top = 24))
         val ok = Prefs.syncOkAt(this)
         val tried = Prefs.syncAttemptAt(this)
         col.addView(
             Ui.text(
                 this,
-                (if (ok > 0) "✅ آخرین ارسال موفق: " + Fa.ago(ok) else "هنوز ارسال موفقی نبوده") +
+                (if (ok > 0) "✅ آخرین ارتباط موفق: " + Fa.ago(ok) else "هنوز ارتباط موفقی نبوده") +
                     (if (tried > ok) "\n⚠️ آخرین تلاش (" + Fa.ago(tried) + ") ناموفق بود — احتمالاً اینترنت قطع است." else ""),
                 17f
             )
@@ -61,10 +65,10 @@ class PairActivity : AppCompatActivity() {
         if (log.isNotBlank()) col.addView(Ui.text(this, log, 13f, Ui.MUTED).apply {
             textDirection = View.TEXT_DIRECTION_ANY_RTL
         })
-        col.addView(Ui.button(this, "📡 ارسال گزارش الان", Ui.PRIMARY) {
-            Ui.toast(this, "در حال ارسال…")
-            Ui.background(this, { Parent.publish(this) }) { success ->
-                Ui.toast(this, if (success) "ارسال شد ✅" else "ارسال نشد — اینترنت را بررسی کنید")
+        col.addView(Ui.button(this, "🔄 دریافت داروها و ارسال گزارش", Ui.PRIMARY) {
+            Ui.toast(this, "در حال ارتباط…")
+            Ui.background(this, { Parent.sync(this) }) { success ->
+                Ui.toast(this, if (success) "انجام شد ✅" else "وصل نشد — اینترنت را بررسی کنید")
                 render()
             }
         })
