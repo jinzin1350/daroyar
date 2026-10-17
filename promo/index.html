@@ -554,7 +554,7 @@
 
           /* ---------------- S2 brand 3.6–6.8 ---------------- */
           tl.fromTo("#appicon", { scale: 0, rotation: -35 }, { scale: 1, rotation: 0, duration: 0.7, ease: "back.out(1.7)" }, 3.62);
-          tl.fromTo("#appglow", { scale: 0.5, opacity: 0.9 }, { scale: 1.6, opacity: 0, duration: 0.9, ease: "power2.out" }, 3.78);
+          tl.fromTo("#appglow", { scale: 0.5, opacity: 0.9 }, { scale: 1.6, opacity: 0, duration: 0.9, ease: "power2.out", immediateRender: false }, 3.78);
           tl.fromTo("#wm", { clipPath: "inset(0% 0% 0% 100%)", y: 20 }, { clipPath: "inset(0% 0% 0% 0%)", y: 0, duration: 0.6, ease: "power3.out" }, 4.02);
           tl.fromTo("#tag", { y: 34, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 4.45);
           tl.fromTo("#tag2", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 4.75);
@@ -673,7 +673,7 @@
 
           /* ---------------- S9 end card 43.85–48.5 ---------------- */
           tl.fromTo("#tile", { scale: 0, rotation: -20 }, { scale: 1, rotation: 0, duration: 0.7, ease: "back.out(1.7)" }, 43.95);
-          tl.fromTo("#tileGlow", { scale: 0.5, opacity: 0.9 }, { scale: 1.7, opacity: 0, duration: 1.0, ease: "power2.out" }, 44.1);
+          tl.fromTo("#tileGlow", { scale: 0.5, opacity: 0.9 }, { scale: 1.7, opacity: 0, duration: 1.0, ease: "power2.out", immediateRender: false }, 44.1);
           tl.fromTo("#nm", { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 44.45);
           tl.fromTo("#nmEn", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 44.65);
           tl.fromTo("#pgLab", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 44.85);
