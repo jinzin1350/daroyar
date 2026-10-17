@@ -27,6 +27,14 @@ android {
     }
 
     signingConfigs {
+        // Test builds: a fixed, deliberately public debug key so a newer test
+        // build installs over an older one. Never used for the real app.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         create("release") {
             if (hasReleaseKey) {
                 storeFile = file(keystorePath!!)
