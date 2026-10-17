@@ -1,0 +1,22 @@
+e: file:///home/runner/work/daroyar/daroyar/app/build.gradle.kts:10:74: Unresolved reference: io
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1792211803550.json
+
+FAILURE: Build completed with 2 failures.
+
+1: Task failed with an exception.
+-----------
+* Where:
+--
+* What went wrong:
+Script compilation error:
+
+  Line 10: val hasReleaseKey = keystorePath != null && keystorePass != null && java.io.File(keystorePath).exists()
+                                                                                    ^ Unresolved reference: io
+
+--
+* What went wrong:
+Script compilation error:
+
+  Line 10: val hasReleaseKey = keystorePath != null && keystorePass != null && java.io.File(keystorePath).exists()
+                                                                                    ^ Unresolved reference: io
+
